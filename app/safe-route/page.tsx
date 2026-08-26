@@ -21,6 +21,8 @@ import {
   AlertTriangle
 } from "lucide-react";
 
+import { RouteOption } from "@/lib/geo/routingService";
+
 // Client-only Route Map
 const RouteMap = dynamic(() => import("@/components/map/RouteMap"), {
   ssr: false,
@@ -34,25 +36,29 @@ const RouteMap = dynamic(() => import("@/components/map/RouteMap"), {
   ),
 });
 
-const DEFAULT_ROUTES = [
+const DEFAULT_ROUTES: RouteOption[] = [
   {
     id: "route-a",
     name: "Route A — Via Kovai Main Road & Central Junction",
     via: "Well-illuminated 4-lane arterial road with continuous public transit",
     distanceKm: 4.2,
     durationMins: 18,
+    activityScore: 85,
     safetyScore: 87,
-    status: "Favorable",
     activityLevel: "HIGH",
     isRecommended: true,
     recommendationReason:
       "Route A provides the highest estimated commercial activity, active surveillance nodes, and optimal street lighting despite a 0.5 km extra distance.",
-    pathCoordinates: [
+    waypoints: [
       [10.9582, 78.0825],
       [10.9600, 78.0810],
       [10.9615, 78.0790],
       [10.9601, 78.0766],
-    ] as [number, number][],
+    ],
+    segments: [
+      { name: "Kovai Main Road", personCountAvg: 28, lightingScore: 90, activityLevel: "HIGH" },
+      { name: "Central Junction", personCountAvg: 34, lightingScore: 95, activityLevel: "HIGH" },
+    ],
   },
   {
     id: "route-b",
@@ -60,18 +66,21 @@ const DEFAULT_ROUTES = [
     via: "Secondary connecting corridor through residential sector",
     distanceKm: 3.7,
     durationMins: 15,
+    activityScore: 62,
     safetyScore: 68,
-    status: "Moderate",
-    activityLevel: "MODERATE",
+    activityLevel: "MEDIUM",
     isRecommended: false,
     recommendationReason:
       "Route B is shorter by 3 minutes, but has intermittent lighting and lower foot traffic after 8 PM.",
-    pathCoordinates: [
+    waypoints: [
       [10.9582, 78.0825],
       [10.9640, 78.0800],
       [10.9630, 78.0750],
       [10.9601, 78.0766],
-    ] as [number, number][],
+    ],
+    segments: [
+      { name: "Northern Bypass", personCountAvg: 14, lightingScore: 65, activityLevel: "MEDIUM" },
+    ],
   },
   {
     id: "route-c",
@@ -79,18 +88,21 @@ const DEFAULT_ROUTES = [
     via: "Narrow isolated connector along industrial drainage stretch",
     distanceKm: 3.8,
     durationMins: 16,
+    activityScore: 35,
     safetyScore: 52,
-    status: "Caution",
     activityLevel: "LOW",
     isRecommended: false,
     recommendationReason:
       "Route C exhibits significantly lower public presence and sparse illumination. Not recommended for solitary nighttime travel.",
-    pathCoordinates: [
+    waypoints: [
       [10.9582, 78.0825],
       [10.9530, 78.0810],
       [10.9550, 78.0750],
       [10.9601, 78.0766],
-    ] as [number, number][],
+    ],
+    segments: [
+      { name: "South Canal Road Alley", personCountAvg: 4, lightingScore: 40, activityLevel: "LOW" },
+    ],
   },
 ];
 
@@ -248,7 +260,7 @@ function SafeRouteContent() {
                       <span className={`text-[10px] font-extrabold uppercase ${
                         route.safetyScore >= 80 ? "text-emerald-600" : route.safetyScore >= 60 ? "text-amber-600" : "text-red-600"
                       }`}>
-                        {route.status}
+                        {route.safetyScore >= 80 ? "Favorable" : route.safetyScore >= 60 ? "Moderate" : "Caution"}
                       </span>
                     </div>
                   </div>
@@ -266,7 +278,7 @@ function SafeRouteContent() {
                     <div>
                       <span className="text-[10px] text-brand-muted block">Activity Level</span>
                       <span className={`font-bold ${
-                        route.activityLevel === "HIGH" ? "text-emerald-600" : route.activityLevel === "MODERATE" ? "text-amber-600" : "text-red-600"
+                        route.activityLevel === "HIGH" ? "text-emerald-600" : route.activityLevel === "MEDIUM" ? "text-amber-600" : "text-red-600"
                       }`}>
                         {route.activityLevel}
                       </span>
