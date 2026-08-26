@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { KARUR_SAMPLE_LOCATIONS } from "@/lib/geo/routingService";
 import { isWithinKarurDistrict } from "@/lib/geo/karurBounds";
-import { MapPin, Search, Navigation, Check, AlertTriangle, Crosshair } from "lucide-react";
+import { MapPin, Search, Navigation, Check, AlertTriangle, Crosshair, Sparkles } from "lucide-react";
 
 export interface GeoLocationSelection {
   lat: number;
@@ -30,8 +30,9 @@ export default function LocationPicker({
   const [searchQuery, setSearchQuery] = useState("");
   const [isLocating, setIsLocating] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Reverse geocoding helper using OpenStreetMap Nominatim (Public & Free)
+  // Reverse geocoding helper using OpenStreetMap Nominatim
   const handleReverseGeocode = async (lat: number, lng: number) => {
     try {
       const res = await fetch(
@@ -63,8 +64,8 @@ export default function LocationPicker({
     if (!searchQuery.trim()) return;
 
     setIsSearching(true);
+    setStatusMessage(null);
     try {
-      // Prioritize Karur / Tamil Nadu search
       const query = searchQuery.toLowerCase().includes("karur")
         ? searchQuery
         : `${searchQuery}, Karur, Tamil Nadu`;
@@ -90,13 +91,15 @@ export default function LocationPicker({
         };
         onSelectLocation(loc);
         handleReverseGeocode(lat, lng);
+        setStatusMessage(`Selected "${name}"`);
       } else {
-        alert(`Location "${searchQuery}" not found. You can also click directly on the interactive map.`);
+        setStatusMessage(`Location "${searchQuery}" not found. Selected closest preset.`);
       }
     } catch {
-      alert("Could not complete search. Please pick a preset or click on the map.");
+      setStatusMessage("Search service busy. You can choose from the presets below.");
     } finally {
       setIsSearching(false);
+      setTimeout(() => setStatusMessage(null), 4000);
     }
   };
 
@@ -120,8 +123,12 @@ export default function LocationPicker({
   };
 
   const handleUseCurrentLocation = () => {
+    setStatusMessage(null);
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
+      // Fallback gracefully without disruptive native alert
+      const defaultHub = KARUR_SAMPLE_LOCATIONS[0];
+      handleSelectSample(defaultHub);
+      setStatusMessage("GPS not supported on this browser. Using Karur Central Hub.");
       return;
     }
 
@@ -132,15 +139,32 @@ export default function LocationPicker({
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         const name = "Current GPS Location";
-        const loc: GeoLocationSelection = { lat, lng, name, region: "Karur", area: "Current Location", landmark: "GPS Pin" };
+        const loc: GeoLocationSelection = {
+          lat,
+          lng,
+          name,
+          region: "Karur",
+          area: "Current Location",
+          landmark: "GPS Pin",
+        };
         onSelectLocation(loc);
         handleReverseGeocode(lat, lng);
+        setStatusMessage("📍 Live GPS coordinates acquired successfully!");
+        setTimeout(() => setStatusMessage(null), 3500);
       },
-      () => {
+      (err) => {
         setIsLocating(false);
-        alert("Could not access GPS. Please choose a location from presets or click the map.");
+        // Fallback gracefully to Karur Bus Stand or user selection
+        const defaultHub = KARUR_SAMPLE_LOCATIONS[0];
+        handleSelectSample(defaultHub);
+        setStatusMessage("GPS unavailable or permission denied. Selected Karur Hub.");
+        setTimeout(() => setStatusMessage(null), 4000);
       },
-      { timeout: 10000 }
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
     );
   };
 
@@ -149,22 +173,29 @@ export default function LocationPicker({
     : true;
 
   return (
-    <div className="bg-navy-800 border border-navy-700 rounded-2xl p-5 space-y-4 shadow-xl">
+    <div className="bg-white border border-brand-border rounded-3xl p-5 space-y-4 shadow-card">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold text-gray-200 uppercase tracking-wider flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-blue-400" />
+        <label className="text-xs font-black text-brand-navy uppercase tracking-wider flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-brand-purple" />
           <span>Location & GPS Selection</span>
         </label>
         <button
           type="button"
           onClick={handleUseCurrentLocation}
           disabled={isLocating}
-          className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1.5 bg-blue-500/10 border border-blue-500/20 px-3 py-1.5 rounded-lg transition-all"
+          className="text-xs font-bold text-brand-purple hover:text-brand-violet flex items-center gap-1.5 bg-brand-light border border-brand-purple/20 px-3 py-1.5 rounded-xl transition-all shadow-sm"
         >
           <Navigation className={`w-3.5 h-3.5 ${isLocating ? "animate-spin" : ""}`} />
           <span>{isLocating ? "Locating..." : "Use Current GPS"}</span>
         </button>
       </div>
+
+      {statusMessage && (
+        <div className="p-3 bg-brand-light border border-brand-purple/20 rounded-2xl text-[11px] font-bold text-brand-navy animate-in fade-in flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-brand-purple shrink-0" />
+          <span>{statusMessage}</span>
+        </div>
+      )}
 
       {/* Location Search Bar */}
       <form onSubmit={handleSearchLocation} className="relative">
@@ -173,13 +204,13 @@ export default function LocationPicker({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search location in Karur (e.g. Bus Stand, Railway Station)..."
-          className="w-full bg-navy-900 border border-navy-600 rounded-xl pl-9 pr-24 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+          className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-9 pr-24 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple transition-colors font-medium"
         />
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+        <Search className="w-4 h-4 text-brand-muted absolute left-3 top-3" />
         <button
           type="submit"
           disabled={isSearching}
-          className="absolute right-1.5 top-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow transition-all"
+          className="absolute right-1.5 top-1.5 px-3.5 py-1.5 bg-brand-purple hover:bg-brand-violet text-white rounded-xl text-xs font-bold shadow transition-all"
         >
           {isSearching ? "Searching..." : "Search"}
         </button>
@@ -187,7 +218,7 @@ export default function LocationPicker({
 
       {/* Preset Hubs */}
       <div className="space-y-2">
-        <p className="text-[11px] font-medium text-gray-400">Quick Select Karur Transit Hubs:</p>
+        <p className="text-[11px] font-bold text-brand-muted">Quick Select Karur Transit Hubs:</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {KARUR_SAMPLE_LOCATIONS.map((loc) => {
             const isSelected = selectedLocation?.name === loc.name;
@@ -196,18 +227,18 @@ export default function LocationPicker({
                 key={loc.name}
                 type="button"
                 onClick={() => handleSelectSample(loc)}
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-left transition-all ${
+                className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
                   isSelected
-                    ? "bg-blue-600/20 border-blue-500 text-white shadow-md shadow-blue-500/10"
-                    : "bg-navy-900/60 border-navy-700/80 text-gray-300 hover:bg-navy-700 hover:text-white"
+                    ? "bg-brand-light border-brand-purple text-brand-navy shadow-sm"
+                    : "bg-brand-soft border-brand-border text-brand-navy hover:bg-white"
                 }`}
               >
                 <div>
-                  <div className="text-xs font-semibold flex items-center gap-1.5">
+                  <div className="text-xs font-extrabold flex items-center gap-1.5">
                     <span>{loc.name}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-blue-400" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-brand-purple" />}
                   </div>
-                  <div className="text-[10px] text-gray-400">{loc.description}</div>
+                  <div className="text-[10px] text-brand-muted mt-0.5">{loc.description}</div>
                 </div>
               </button>
             );
@@ -218,27 +249,27 @@ export default function LocationPicker({
       {/* Selected Location Pill */}
       {selectedLocation && (
         <div
-          className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+          className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs ${
             isCurrentKarur
-              ? "bg-emerald-950/30 border-emerald-500/30 text-emerald-300"
-              : "bg-red-950/40 border-red-500/40 text-red-300"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : "bg-amber-50 border-amber-200 text-amber-800"
           }`}
         >
           <div className="flex items-center gap-2.5">
             {isCurrentKarur ? (
-              <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
             ) : (
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             )}
             <div>
-              <span className="font-bold text-white text-xs">{selectedLocation.name}</span>
-              <div className="text-[11px] opacity-85 font-mono">
+              <span className="font-extrabold text-brand-navy text-xs">{selectedLocation.name}</span>
+              <div className="text-[11px] text-brand-muted font-mono mt-0.5">
                 📍 Lat: {selectedLocation.lat.toFixed(4)} | Lng: {selectedLocation.lng.toFixed(4)}
               </div>
             </div>
           </div>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border uppercase">
-            {isCurrentKarur ? "Karur District" : "Outside Boundary"}
+          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full border uppercase bg-white">
+            {isCurrentKarur ? "Karur District" : "Adjacent Area"}
           </span>
         </div>
       )}

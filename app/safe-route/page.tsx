@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import AppSidebar from "@/components/layout/AppSidebar";
 import dynamic from "next/dynamic";
+import LiveJourneyHUD from "@/components/navigation/LiveJourneyHUD";
 import {
   Shield,
   MapPin,
@@ -18,10 +19,13 @@ import {
   ArrowRight,
   Info,
   Car,
-  AlertTriangle
+  AlertTriangle,
+  Play,
+  Footprints
 } from "lucide-react";
 
 import { RouteOption } from "@/lib/geo/routingService";
+import { KARUR_NEW_BUS_STAND } from "@/lib/geo/karurBounds";
 
 // Client-only Route Map
 const RouteMap = dynamic(() => import("@/components/map/RouteMap"), {
@@ -29,7 +33,7 @@ const RouteMap = dynamic(() => import("@/components/map/RouteMap"), {
   loading: () => (
     <div className="w-full h-[520px] bg-brand-soft rounded-3xl flex items-center justify-center border border-brand-border">
       <div className="flex flex-col items-center gap-2">
-        <div className="w-8 h-8 border-3 border-brand-purple border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-brand-purple border-t-transparent rounded-full animate-spin" />
         <span className="text-xs font-semibold text-brand-muted">Generating Route Geometry...</span>
       </div>
     </div>
@@ -40,7 +44,7 @@ const DEFAULT_ROUTES: RouteOption[] = [
   {
     id: "route-a",
     name: "Route A — Via Kovai Main Road & Central Junction",
-    via: "Well-illuminated 4-lane arterial road with continuous public transit",
+    via: "Well-illuminated 4-lane arterial road with continuous public transit & CCTV",
     distanceKm: 4.2,
     durationMins: 18,
     activityScore: 85,
@@ -51,8 +55,10 @@ const DEFAULT_ROUTES: RouteOption[] = [
       "Route A provides the highest estimated commercial activity, active surveillance nodes, and optimal street lighting despite a 0.5 km extra distance.",
     waypoints: [
       [10.9582, 78.0825],
-      [10.9600, 78.0810],
+      [10.9592, 78.0818],
+      [10.9602, 78.0805],
       [10.9615, 78.0790],
+      [10.9610, 78.0778],
       [10.9601, 78.0766],
     ],
     segments: [
@@ -74,6 +80,7 @@ const DEFAULT_ROUTES: RouteOption[] = [
       "Route B is shorter by 3 minutes, but has intermittent lighting and lower foot traffic after 8 PM.",
     waypoints: [
       [10.9582, 78.0825],
+      [10.9620, 78.0815],
       [10.9640, 78.0800],
       [10.9630, 78.0750],
       [10.9601, 78.0766],
@@ -118,7 +125,94 @@ function SafeRouteContent() {
   const [routes, setRoutes] = useState(DEFAULT_ROUTES);
   const [selectedRouteId, setSelectedRouteId] = useState<string>("route-a");
 
+  // ================= LIVE NAVIGATION STATES =================
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [currentUserCoords, setCurrentUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const simulationStepRef = useRef(0);
+  const simulationTimerRef = useRef<any>(null);
+  const watchIdRef = useRef<number | null>(null);
+
   const activeRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+
+  const destinationLocation = {
+    lat: KARUR_NEW_BUS_STAND.lat,
+    lng: KARUR_NEW_BUS_STAND.lng,
+    name: destinationName,
+  };
+
+  // Start Live Navigation Flow
+  const handleStartJourney = () => {
+    setIsNavigating(true);
+    const initialCoords = { lat: activeRoute.waypoints[0][0], lng: activeRoute.waypoints[0][1] };
+    setCurrentUserCoords(initialCoords);
+
+    // Start Real GPS Geolocation Watcher
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          if (!isSimulating) {
+            setCurrentUserCoords({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            });
+          }
+        },
+        (err) => {
+          console.warn("[LiveNav] GPS watch error or permission denied, using route waypoints", err);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    }
+  };
+
+  // End Journey
+  const handleEndJourney = () => {
+    setIsNavigating(false);
+    setIsSimulating(false);
+    if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+    if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  // Toggle Movement Simulation (Walk Test)
+  const handleToggleSimulation = () => {
+    if (isSimulating) {
+      setIsSimulating(false);
+      if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+    } else {
+      setIsSimulating(true);
+      simulationStepRef.current = 0;
+      const pts = activeRoute.waypoints;
+
+      simulationTimerRef.current = setInterval(() => {
+        if (simulationStepRef.current < pts.length) {
+          const pt = pts[simulationStepRef.current];
+          setCurrentUserCoords({ lat: pt[0], lng: pt[1] });
+          simulationStepRef.current += 1;
+        } else {
+          // Reached destination
+          clearInterval(simulationTimerRef.current);
+          setIsSimulating(false);
+        }
+      }, 2000);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (simulationTimerRef.current) clearInterval(simulationTimerRef.current);
+      if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
 
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -131,61 +225,83 @@ function SafeRouteContent() {
             className="flex items-center gap-2 text-xs font-bold text-brand-muted hover:text-brand-purple mb-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Area Analysis</span>
+            <span>Back to Dashboard</span>
           </button>
-          <h1 className="text-2xl sm:text-3xl font-black text-brand-navy tracking-tight">
-            Safer Route Intelligence
+          <h1 className="text-2xl sm:text-3xl font-black text-brand-navy tracking-tight flex items-center gap-2">
+            <span>Safer Route & Live Navigation</span>
           </h1>
           <p className="text-xs text-brand-muted">
-            Compare alternative paths based on estimated safety indicators, lighting presence, and transit duration.
+            Real-time GPS tracking, distance remaining countdown, estimated time of arrival, and multi-factor safety evaluation.
           </p>
         </div>
 
-        <span className="text-xs font-bold px-3 py-1.5 bg-brand-light text-brand-purple border border-brand-purple/20 rounded-xl self-start sm:self-auto">
-          AI Multi-Route Engine
-        </span>
+        {!isNavigating && (
+          <button
+            onClick={handleStartJourney}
+            className="px-6 py-3 bg-brand-purple hover:bg-brand-violet text-white font-extrabold rounded-2xl text-xs flex items-center gap-2 shadow-lg shadow-brand-purple/25 transition-all self-start sm:self-auto shrink-0 animate-bounce-subtle"
+          >
+            <Play className="w-4 h-4 fill-white" />
+            <span>Start Live Safe Navigation</span>
+          </button>
+        )}
       </div>
+
+      {/* LIVE NAVIGATION HUD BANNER (Active when user clicks Start Journey) */}
+      {isNavigating && (
+        <LiveJourneyHUD
+          route={activeRoute}
+          currentCoords={currentUserCoords}
+          destinationCoords={destinationLocation}
+          originName={originName}
+          isSimulating={isSimulating}
+          onToggleSimulation={handleToggleSimulation}
+          onEndJourney={handleEndJourney}
+          onTriggerSOS={() => {
+            alert("Emergency SOS triggered with live GPS coordinates!");
+          }}
+        />
+      )}
 
       {/* Origin -> Destination Search Inputs */}
-      <div className="bg-white rounded-3xl p-5 border border-brand-border shadow-card grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-        
-        <div className="md:col-span-5 space-y-1">
-          <label className="text-[10px] font-extrabold uppercase tracking-wider text-brand-muted block">
-            Origin Location
-          </label>
-          <div className="flex items-center gap-2 bg-brand-soft px-3.5 py-2.5 rounded-2xl border border-brand-border">
-            <MapPin className="w-4 h-4 text-brand-purple flex-shrink-0" />
-            <input
-              type="text"
-              value={originName}
-              onChange={(e) => setOriginName(e.target.value)}
-              className="w-full bg-transparent text-xs font-bold text-brand-navy outline-none"
-            />
+      {!isNavigating && (
+        <div className="bg-white rounded-3xl p-5 border border-brand-border shadow-card grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+          <div className="md:col-span-5 space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-brand-muted block">
+              Origin Location
+            </label>
+            <div className="flex items-center gap-2 bg-brand-soft px-3.5 py-2.5 rounded-2xl border border-brand-border">
+              <MapPin className="w-4 h-4 text-brand-purple flex-shrink-0" />
+              <input
+                type="text"
+                value={originName}
+                onChange={(e) => setOriginName(e.target.value)}
+                className="w-full bg-transparent text-xs font-bold text-brand-navy outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="md:col-span-2 flex justify-center">
+            <div className="w-8 h-8 rounded-full bg-brand-light text-brand-purple flex items-center justify-center font-bold text-xs">
+              →
+            </div>
+          </div>
+
+          <div className="md:col-span-5 space-y-1">
+            <label className="text-[10px] font-extrabold uppercase tracking-wider text-brand-muted block">
+              Destination
+            </label>
+            <div className="flex items-center gap-2 bg-brand-soft px-3.5 py-2.5 rounded-2xl border border-brand-border">
+              <Navigation className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <input
+                type="text"
+                value={destinationName}
+                onChange={(e) => setDestinationName(e.target.value)}
+                className="w-full bg-transparent text-xs font-bold text-brand-navy outline-none"
+              />
+            </div>
           </div>
         </div>
-
-        <div className="md:col-span-2 flex justify-center">
-          <div className="w-8 h-8 rounded-full bg-brand-light text-brand-purple flex items-center justify-center font-bold text-xs">
-            →
-          </div>
-        </div>
-
-        <div className="md:col-span-5 space-y-1">
-          <label className="text-[10px] font-extrabold uppercase tracking-wider text-brand-muted block">
-            Destination
-          </label>
-          <div className="flex items-center gap-2 bg-brand-soft px-3.5 py-2.5 rounded-2xl border border-brand-border">
-            <Navigation className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <input
-              type="text"
-              value={destinationName}
-              onChange={(e) => setDestinationName(e.target.value)}
-              className="w-full bg-transparent text-xs font-bold text-brand-navy outline-none"
-            />
-          </div>
-        </div>
-
-      </div>
+      )}
 
       {/* Main Grid: Route Comparison Cards (Left) + Route Map (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -195,7 +311,7 @@ function SafeRouteContent() {
           
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-brand-navy uppercase tracking-wider">
-              Available Route Alternatives ({routes.length})
+              {isNavigating ? "Active Navigating Route" : `Available Route Alternatives (${routes.length})`}
             </span>
             <span className="text-[11px] font-bold text-brand-purple">
               AI Evaluated
@@ -203,7 +319,7 @@ function SafeRouteContent() {
           </div>
 
           {/* Recommended Route Card Banner */}
-          {routes.find((r) => r.isRecommended) && (
+          {!isNavigating && routes.find((r) => r.isRecommended) && (
             <div className="p-5 bg-gradient-to-br from-emerald-50 via-white to-brand-light rounded-3xl border border-emerald-300 shadow-card space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase text-emerald-800 tracking-wider flex items-center gap-1.5">
@@ -230,12 +346,14 @@ function SafeRouteContent() {
               return (
                 <div
                   key={route.id}
-                  onClick={() => setSelectedRouteId(route.id)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-3 ${
+                  onClick={() => {
+                    if (!isNavigating) setSelectedRouteId(route.id);
+                  }}
+                  className={`p-4 rounded-3xl border transition-all space-y-3 ${
                     isSelected
                       ? "bg-white border-brand-purple shadow-hover ring-2 ring-brand-purple/20"
                       : "bg-white border-brand-border hover:border-brand-purple/40 shadow-sm"
-                  }`}
+                  } ${isNavigating ? "cursor-default" : "cursor-pointer"}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
@@ -252,7 +370,7 @@ function SafeRouteContent() {
                       <p className="text-xs text-brand-muted mt-0.5">{route.via}</p>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-base font-black text-brand-purple">
                         {route.safetyScore}
                         <span className="text-xs text-brand-muted">/100</span>
@@ -284,6 +402,17 @@ function SafeRouteContent() {
                       </span>
                     </div>
                   </div>
+
+                  {/* Start Journey button on the selected route */}
+                  {isSelected && !isNavigating && (
+                    <button
+                      onClick={handleStartJourney}
+                      className="w-full py-2.5 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-purple/20 transition-all mt-1"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Start Journey on this Route</span>
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -297,7 +426,7 @@ function SafeRouteContent() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-brand-navy flex items-center gap-1.5">
                 <Navigation className="w-4 h-4 text-brand-purple" />
-                <span>Route Visualizer Map</span>
+                <span>{isNavigating ? "Live Navigation GPS Map" : "Route Visualizer Map"}</span>
               </span>
               <span className="text-xs font-bold text-brand-purple">
                 Viewing: {activeRoute.name.split("—")[0]}
@@ -310,9 +439,14 @@ function SafeRouteContent() {
                 lng: startLng,
                 name: originName,
               }}
+              destinationLocation={destinationLocation}
               routes={routes}
               selectedRouteId={selectedRouteId}
-              onSelectRoute={(id) => setSelectedRouteId(id)}
+              isNavigating={isNavigating}
+              currentUserCoords={currentUserCoords}
+              onSelectRoute={(id) => {
+                if (!isNavigating) setSelectedRouteId(id);
+              }}
             />
           </div>
         </div>
