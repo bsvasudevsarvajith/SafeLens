@@ -12,11 +12,13 @@ import {
   CheckCircle2,
   AlertCircle,
   Smartphone,
-  Sparkles
+  Sparkles,
+  UserCheck
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import NoticeDisclaimer from "@/components/ui/NoticeDisclaimer";
 import SafeLensLogo from "@/components/brand/SafeLensLogo";
+import { getLocalSeedState, UserRecord } from "@/lib/seedData";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,42 +32,66 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [demoOtp, setDemoOtp] = useState("123456");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // ---------------- EMAIL / ADMIN LOGIN ----------------
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      let role = "user";
-      if (email.trim().toLowerCase() === "admin@wsrs.in") {
+      const seed = getLocalSeedState();
+      const inputEmail = email.trim().toLowerCase();
+
+      // Check for primary admin
+      if (inputEmail === "admin@wsrs.in") {
         if (password !== "admin@1234") {
           throw new Error("Invalid password for Administrator account.");
         }
-        role = "admin";
+        const adminSession = {
+          email: "admin@wsrs.in",
+          role: "admin",
+          name: "System Administrator",
+          token: "wsrs-auth-token-admin",
+        };
+        localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
+        setSuccess("Administrator login verified! Redirecting to Admin Dashboard...");
+        setTimeout(() => router.push("/admin/dashboard"), 600);
+        return;
       }
 
+      // Check in registered users
+      const existingUser = seed.users.find((u: UserRecord) => u.email.toLowerCase() === inputEmail);
+      if (existingUser && existingUser.status === "disabled") {
+        throw new Error("This account is currently disabled. Please contact an administrator.");
+      }
+
+      const role = existingUser?.role || "user";
+      const userName = existingUser?.name || inputEmail.split("@")[0];
+
       const userSession = {
-        email: email.trim().toLowerCase(),
+        uid: existingUser?.uid || `user-${Date.now()}`,
+        email: inputEmail,
         role: role,
-        name: role === "admin" ? "System Administrator" : email.split("@")[0],
-        token: "wsrs-auth-token-2026",
+        name: userName,
+        token: "wsrs-auth-token-session",
       };
 
       localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-      setSuccess("Login successful! Redirecting to SafeLens...");
+      setSuccess(`Welcome back, ${userName}! Redirecting...`);
 
       setTimeout(() => {
         if (role === "admin") {
-          router.push("/admin/cameras");
+          router.push("/admin/dashboard");
         } else {
           router.push("/dashboard");
         }
-      }, 700);
+      }, 600);
     } catch (err: any) {
       setError(err.message || "Invalid login credentials. Please try again.");
     } finally {
@@ -73,9 +99,11 @@ export default function LoginPage() {
     }
   };
 
+  // ---------------- PHONE OTP LOGIN ----------------
   const handleSendOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber || phoneNumber.length < 10) {
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
+    if (cleanPhone.length < 10) {
       setError("Please enter a valid 10-digit mobile number.");
       return;
     }
@@ -86,36 +114,57 @@ export default function LoginPage() {
     setTimeout(() => {
       setLoading(false);
       setOtpSent(true);
-      setSuccess(`Mock SMS OTP sent to ${phoneNumber}. (Use code: 123456)`);
-    }, 800);
+      setDemoOtp("123456");
+      setSuccess(`Mock SMS OTP dispatched to +91 ${cleanPhone.slice(-10)}`);
+    }, 600);
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode !== "123456") {
-      setError("Invalid OTP code. For demo, use 123456.");
+    if (otpCode.trim() !== demoOtp && otpCode.trim() !== "123456") {
+      setError("Invalid OTP code. Please enter 123456.");
       return;
     }
 
     setLoading(true);
+    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
+
+    // Look for matching registered user
+    const seed = getLocalSeedState();
+    const existingUser = seed.users.find(
+      (u: UserRecord) => u.phone && u.phone.replace(/[^0-9]/g, "").includes(cleanPhone.slice(-10))
+    );
+
+    const role = existingUser?.role || "user";
+    const userName = existingUser?.name || `Traveler (${cleanPhone.slice(-4)})`;
+    const userEmail = existingUser?.email || `user_${cleanPhone.slice(-4)}@safelens.in`;
+
     const userSession = {
-      email: `user_${phoneNumber.slice(-4)}@wsrs.in`,
-      role: "user",
-      name: `Traveler (${phoneNumber.slice(-4)})`,
+      uid: existingUser?.uid || `user-phone-${Date.now()}`,
+      email: userEmail,
+      phoneNumber: `+91 ${cleanPhone.slice(-10)}`,
+      role: role,
+      name: userName,
       token: "wsrs-auth-token-phone",
     };
 
     localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-    setSuccess("Phone authentication verified! Redirecting...");
+    setSuccess(`Phone verified! Logging in as ${userName}...`);
 
     setTimeout(() => {
-      router.push("/dashboard");
+      if (role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     }, 600);
   };
 
+  // ---------------- GOOGLE LOGIN ----------------
   const handleGoogleLogin = () => {
     setLoading(true);
     const userSession = {
+      uid: "user-google-demo",
       email: "google.user@gmail.com",
       role: "user",
       name: "Google Traveler",
@@ -128,6 +177,31 @@ export default function LoginPage() {
     setTimeout(() => {
       router.push("/dashboard");
     }, 600);
+  };
+
+  // ---------------- 1-CLICK DEMO LOGIN ----------------
+  const handleQuickDemoLogin = (type: "admin" | "user") => {
+    if (type === "admin") {
+      const adminSession = {
+        email: "admin@wsrs.in",
+        role: "admin",
+        name: "System Administrator",
+        token: "wsrs-auth-token-admin",
+      };
+      localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
+      setSuccess("Logged in as System Administrator!");
+      setTimeout(() => router.push("/admin/dashboard"), 400);
+    } else {
+      const userSession = {
+        email: "traveler@safelens.in",
+        role: "user",
+        name: "Priya Sharma",
+        token: "wsrs-auth-token-demo",
+      };
+      localStorage.setItem("wsrs_session", JSON.stringify(userSession));
+      setSuccess("Logged in as Community Traveler!");
+      setTimeout(() => router.push("/dashboard"), 400);
+    }
   };
 
   return (
@@ -143,6 +217,31 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-black text-brand-navy tracking-tight">Welcome to SafeLens</h1>
             <p className="text-xs text-brand-muted">Crowd AI & Urban Safety Intelligence</p>
+          </div>
+
+          {/* Quick Demo Access Bar */}
+          <div className="p-3 bg-brand-light border border-brand-purple/20 rounded-2xl space-y-2">
+            <span className="text-[10px] uppercase tracking-wider font-extrabold text-brand-purple block text-center">
+              Quick 1-Click Demo Access
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleQuickDemoLogin("admin")}
+                className="py-1.5 px-2.5 bg-brand-purple hover:bg-brand-violet text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Admin Login</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickDemoLogin("user")}
+                className="py-1.5 px-2.5 bg-white hover:bg-brand-soft border border-brand-border text-brand-navy text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-brand-purple" />
+                <span>User Login</span>
+              </button>
+            </div>
           </div>
 
           {/* Auth Method Selector */}
@@ -182,14 +281,14 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5">
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-semibold flex items-center gap-2.5">
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{success}</span>
             </div>
@@ -207,7 +306,7 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@wsrs.in or name@example.com"
+                    placeholder="admin@wsrs.in or registered email"
                     className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
@@ -248,16 +347,17 @@ export default function LoginPage() {
               {!otpSent ? (
                 <form onSubmit={handleSendOtp} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-brand-navy">Mobile Phone Number</label>
+                    <label className="text-xs font-bold text-brand-navy">Registered Mobile Number</label>
                     <div className="relative">
-                      <Smartphone className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
+                      <div className="absolute left-3 top-2.5 text-xs font-bold text-brand-purple">🇮🇳 +91</div>
                       <input
                         type="tel"
                         required
+                        maxLength={10}
                         value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="+91 98421 11223"
-                        className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="98421 11223"
+                        className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-16 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                       />
                     </div>
                   </div>
@@ -273,23 +373,25 @@ export default function LoginPage() {
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="p-3 bg-brand-light border border-brand-purple/20 rounded-2xl flex items-center justify-between text-xs">
+                    <span className="text-brand-purple font-bold">Demo OTP: {demoOtp}</span>
+                    <button
+                      type="button"
+                      onClick={() => setOtpSent(false)}
+                      className="text-brand-purple font-bold hover:underline text-[11px]"
+                    >
+                      Change Number
+                    </button>
+                  </div>
+
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-brand-navy">Enter 6-Digit OTP</label>
-                      <button
-                        type="button"
-                        onClick={() => setOtpSent(false)}
-                        className="text-[10px] text-brand-purple font-bold hover:underline"
-                      >
-                        Change Number
-                      </button>
-                    </div>
+                    <label className="text-xs font-bold text-brand-navy text-center block">Enter 6-Digit OTP</label>
                     <input
                       type="text"
                       maxLength={6}
                       required
                       value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
                       placeholder="123456"
                       className="w-full bg-brand-soft border border-brand-border rounded-2xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-brand-navy focus:outline-none focus:border-brand-purple"
                     />
@@ -297,7 +399,7 @@ export default function LoginPage() {
 
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || otpCode.length < 6}
                     className="w-full py-3 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                   >
                     <span>{loading ? "Verifying..." : "Verify OTP & Continue"}</span>
@@ -312,7 +414,7 @@ export default function LoginPage() {
           {authMethod === "google" && (
             <div className="space-y-4 text-center py-2">
               <p className="text-xs text-brand-muted">
-                Sign in securely with your verified Google account credentials.
+                Sign in securely with your Google account.
               </p>
 
               <button
@@ -335,7 +437,7 @@ export default function LoginPage() {
           <div className="text-center text-xs text-brand-muted pt-2 border-t border-brand-border">
             Don't have an account?{" "}
             <Link href="/register" className="text-brand-purple hover:underline font-bold">
-              Create Account
+              Register with Mobile OTP
             </Link>
           </div>
 
