@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Header from "@/components/layout/Header";
-import AppSidebar from "@/components/layout/AppSidebar";
 import LocationPicker, { GeoLocationSelection } from "@/components/map/LocationPicker";
 import CCTVMap from "@/components/map/CCTVMap";
 import { getLocalSeedState, saveLocalSeedState, CameraRecord } from "@/lib/seedData";
@@ -100,19 +98,16 @@ export default function AdminCamerasPage() {
       isDemo: streamType === "Demo",
     };
 
-    let updatedList: CameraRecord[];
+    let updated: CameraRecord[];
     if (editingCameraId) {
-      updatedList = cameras.map((c) => (c.id === editingCameraId ? newCam : c));
-      setMessage(`Camera "${newCam.cameraName}" updated successfully.`);
+      updated = cameras.map((c) => (c.id === editingCameraId ? newCam : c));
     } else {
-      updatedList = [newCam, ...cameras];
-      setMessage(`Camera "${newCam.cameraName}" registered successfully.`);
+      updated = [newCam, ...cameras];
     }
 
-    setCameras(updatedList);
-    saveLocalSeedState({ cameras: updatedList });
+    setCameras(updated);
+    saveLocalSeedState({ cameras: updated });
 
-    // Also notify backend API
     try {
       await fetch("/api/cameras", {
         method: "POST",
@@ -120,16 +115,17 @@ export default function AdminCamerasPage() {
         body: JSON.stringify(newCam),
       });
     } catch {
-      // Local seed persists
+      // Local seed handles fallback
     }
 
     setModalOpen(false);
-    resetForm();
-    setTimeout(() => setMessage(null), 4000);
+    setMessage(editingCameraId ? "Camera node updated successfully." : "New CCTV node registered successfully.");
+    setTimeout(() => setMessage(null), 3500);
   };
 
   const handleDeleteCamera = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this camera node?")) return;
+    if (!confirm("Are you sure you want to delete this camera node?")) return;
+
     const updated = cameras.filter((c) => c.id !== id);
     setCameras(updated);
     saveLocalSeedState({ cameras: updated });
@@ -142,144 +138,135 @@ export default function AdminCamerasPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex">
-      <AppSidebar />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          
-          {/* Header */}
-          <div className="bg-navy-800 border border-navy-700/80 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-xs font-semibold mb-2">
-                <Shield className="w-3.5 h-3.5" />
-                <span>Authorized Camera Registry</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-                🛠️ CCTV Camera Management
-              </h1>
-              <p className="text-xs text-gray-400 mt-1">
-                Register authorized CCTV nodes, connect stream protocols (RTSP, HLS, WebRTC, Demo), and map GPS coordinates.
-              </p>
-            </div>
-
-            <button
-              onClick={handleOpenAddModal}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New CCTV Camera</span>
-            </button>
+    <div className="space-y-6">
+      
+      {/* Header Banner */}
+      <div className="bg-white border border-brand-border rounded-3xl p-6 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-brand-light border border-brand-purple/20 rounded-full text-brand-purple text-xs font-bold mb-2">
+            <Shield className="w-3.5 h-3.5" />
+            <span>Authorized Camera Registry</span>
           </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-brand-navy tracking-tight flex items-center gap-2">
+            <span>CCTV Camera Management</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-brand-muted mt-1">
+            Register authorized CCTV nodes, connect stream protocols (RTSP, HLS, WebRTC, Demo), and map GPS coordinates.
+          </p>
+        </div>
 
-          {message && (
-            <div className="p-4 bg-emerald-950/50 border border-emerald-500/40 rounded-2xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>{message}</span>
-            </div>
-          )}
+        <button
+          onClick={handleOpenAddModal}
+          className="px-5 py-2.5 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-purple/20 transition-all shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add New CCTV Camera</span>
+        </button>
+      </div>
 
-          {/* Registered Cameras Table */}
-          <div className="bg-navy-800 border border-navy-700 rounded-3xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-white text-base">Registered Surveillance Nodes ({cameras.length})</h2>
-              <span className="text-xs text-gray-400">Authorized Municipal Network</span>
-            </div>
+      {message && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{message}</span>
+        </div>
+      )}
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-navy-900/80 text-gray-400 border-b border-navy-700 uppercase tracking-wider text-[10px]">
-                  <tr>
-                    <th className="p-3.5">Camera Name / Node</th>
-                    <th className="p-3.5">Region / Area</th>
-                    <th className="p-3.5">GPS Coordinates</th>
-                    <th className="p-3.5">Protocol</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5">Crowd Level</th>
-                    <th className="p-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-navy-700/60 text-gray-200">
-                  {cameras.map((c) => (
-                    <tr key={c.id} className="hover:bg-navy-700/40 transition-colors">
-                      <td className="p-3.5">
-                        <div className="font-bold text-white flex items-center gap-2">
-                          <span>📹</span>
-                          <span>{c.cameraName}</span>
-                          {c.isDemo && (
-                            <span className="text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">
-                              DEMO
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-gray-400 text-[11px] mt-0.5">{c.landmark}</div>
-                      </td>
+      {/* Registered Cameras Table */}
+      <div className="bg-white border border-brand-border rounded-3xl p-6 shadow-card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-extrabold text-brand-navy text-base">Registered Surveillance Nodes ({cameras.length})</h2>
+          <span className="text-xs text-brand-muted font-medium">Authorized Municipal Network</span>
+        </div>
 
-                      <td className="p-3.5">
-                        <div className="font-semibold text-gray-200">{c.regionName}</div>
-                        <div className="text-gray-400 text-[11px]">{c.areaName}</div>
-                      </td>
-
-                      <td className="p-3.5 font-mono text-[11px] text-gray-300">
-                        {c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}
-                      </td>
-
-                      <td className="p-3.5">
-                        <span className="px-2 py-0.5 bg-navy-900 border border-navy-600 rounded text-[10px] font-mono text-gray-300">
-                          {c.streamType}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-brand-soft text-brand-muted border-b border-brand-border uppercase tracking-wider font-bold">
+              <tr>
+                <th className="p-3.5">Camera Name / Node</th>
+                <th className="p-3.5">Region / Area</th>
+                <th className="p-3.5">GPS Coordinates</th>
+                <th className="p-3.5">Protocol</th>
+                <th className="p-3.5">Status</th>
+                <th className="p-3.5">Crowd Level</th>
+                <th className="p-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-brand-border text-brand-navy">
+              {cameras.map((c) => (
+                <tr key={c.id} className="hover:bg-brand-soft/60 transition-colors">
+                  <td className="p-3.5">
+                    <div className="font-bold text-brand-navy flex items-center gap-2">
+                      <span>📹</span>
+                      <span>{c.cameraName}</span>
+                      {c.isDemo && (
+                        <span className="text-[9px] font-bold bg-brand-light text-brand-purple border border-brand-purple/20 px-1.5 py-0.5 rounded">
+                          DEMO
                         </span>
-                      </td>
+                      )}
+                    </div>
+                    <div className="text-brand-muted text-[11px] mt-0.5">{c.landmark}</div>
+                  </td>
 
-                      <td className="p-3.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
-                          c.status === "active"
-                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                            : c.status === "warning"
-                            ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
-                            : "bg-red-500/20 text-red-400 border-red-500/30"
-                        }`}>
-                          {c.status}
-                        </span>
-                      </td>
+                  <td className="p-3.5">
+                    <div className="font-bold text-brand-navy">{c.regionName}</div>
+                    <div className="text-brand-muted text-[11px]">{c.areaName}</div>
+                  </td>
 
-                      <td className="p-3.5">
-                        <span className="font-bold text-emerald-400">{c.peopleCount} people</span>
-                        <div className="text-[10px] text-gray-400">{c.crowdDensity}% density</div>
-                      </td>
+                  <td className="p-3.5 font-mono text-[11px] text-brand-muted">
+                    {c.latitude.toFixed(4)}, {c.longitude.toFixed(4)}
+                  </td>
 
-                      <td className="p-3.5 text-right space-x-2">
-                        <button
-                          onClick={() => handleDeleteCamera(c.id)}
-                          className="p-1.5 bg-red-950/40 hover:bg-red-900/50 text-red-400 border border-red-500/30 rounded-lg inline-flex"
-                          title="Delete Camera Node"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  <td className="p-3.5">
+                    <span className="px-2.5 py-1 bg-brand-soft border border-brand-border rounded-xl text-[10px] font-mono font-bold text-brand-navy">
+                      {c.streamType}
+                    </span>
+                  </td>
 
-        </main>
+                  <td className="p-3.5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                      c.status === "active"
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : c.status === "warning"
+                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                        : "bg-red-50 text-red-700 border-red-200"
+                    }`}>
+                      {c.status}
+                    </span>
+                  </td>
+
+                  <td className="p-3.5">
+                    <span className="font-extrabold text-emerald-700">{c.peopleCount} people</span>
+                    <div className="text-[10px] text-brand-muted font-medium">{c.crowdDensity}% density</div>
+                  </td>
+
+                  <td className="p-3.5 text-right space-x-2">
+                    <button
+                      onClick={() => handleDeleteCamera(c.id)}
+                      className="p-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl inline-flex transition-colors"
+                      title="Delete Camera Node"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Add / Edit Camera Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-navy-800 border border-navy-700 rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 my-8">
-            <div className="flex items-center justify-between border-b border-navy-700 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Camera className="w-5 h-5 text-emerald-400" />
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border border-brand-border rounded-3xl p-6 sm:p-8 max-w-2xl w-full shadow-2xl space-y-5 my-8 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-brand-border pb-3">
+              <h3 className="text-lg font-black text-brand-navy flex items-center gap-2">
+                <Camera className="w-5 h-5 text-brand-purple" />
                 <span>{editingCameraId ? "Edit CCTV Camera Node" : "Register Authorized CCTV Camera"}</span>
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-1 text-gray-400 hover:text-white rounded-lg"
+                className="p-1 text-brand-muted hover:text-brand-navy rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -289,58 +276,58 @@ export default function AdminCamerasPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Camera Name</label>
+                  <label className="font-bold text-brand-navy">Camera Name</label>
                   <input
                     type="text"
                     required
                     value={cameraName}
                     onChange={(e) => setCameraName(e.target.value)}
                     placeholder="e.g. Karur Bus Stand Camera 01"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Region / City</label>
+                  <label className="font-bold text-brand-navy">Region / City</label>
                   <input
                     type="text"
                     required
                     value={regionName}
                     onChange={(e) => setRegionName(e.target.value)}
                     placeholder="e.g. Karur"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Area Name</label>
+                  <label className="font-bold text-brand-navy">Area Name</label>
                   <input
                     type="text"
                     required
                     value={areaName}
                     onChange={(e) => setAreaName(e.target.value)}
                     placeholder="e.g. Bus Stand / Kovai Road"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Landmark</label>
+                  <label className="font-bold text-brand-navy">Landmark</label>
                   <input
                     type="text"
                     value={landmark}
                     onChange={(e) => setLandmark(e.target.value)}
                     placeholder="e.g. Main Entrance Concourse"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Camera Type</label>
+                  <label className="font-bold text-brand-navy">Camera Type</label>
                   <select
                     value={cameraType}
                     onChange={(e) => setCameraType(e.target.value as any)}
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-bold focus:outline-none focus:border-brand-purple"
                   >
                     <option value="Fixed CCTV">Fixed CCTV</option>
                     <option value="PTZ Camera">PTZ Camera</option>
@@ -351,11 +338,11 @@ export default function AdminCamerasPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Stream Protocol</label>
+                  <label className="font-bold text-brand-navy">Stream Protocol</label>
                   <select
                     value={streamType}
                     onChange={(e) => setStreamType(e.target.value as any)}
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-bold focus:outline-none focus:border-brand-purple"
                   >
                     <option value="RTSP">RTSP (Real-Time Streaming Protocol)</option>
                     <option value="HLS">HLS (HTTP Live Streaming)</option>
@@ -365,46 +352,46 @@ export default function AdminCamerasPage() {
                 </div>
 
                 <div className="md:col-span-2 space-y-1.5">
-                  <label className="font-semibold text-gray-300">Stream URL (Kept Server-Side / Admin Only)</label>
+                  <label className="font-bold text-brand-navy">Stream URL (Kept Server-Side / Admin Only)</label>
                   <input
                     type="text"
                     value={streamUrl}
                     onChange={(e) => setStreamUrl(e.target.value)}
                     placeholder="rtsp://user:pass@camera.local:554/feed"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono text-[11px]"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-mono text-[11px]"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Latitude</label>
+                  <label className="font-bold text-brand-navy">Latitude</label>
                   <input
                     type="number"
                     step="0.0001"
                     required
                     value={latitude}
                     onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-mono focus:outline-none focus:border-brand-purple"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Longitude</label>
+                  <label className="font-bold text-brand-navy">Longitude</label>
                   <input
                     type="number"
                     step="0.0001"
                     required
                     value={longitude}
                     onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white font-mono focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-mono focus:outline-none focus:border-brand-purple"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Status</label>
+                  <label className="font-bold text-brand-navy">Status</label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as any)}
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-bold focus:outline-none focus:border-brand-purple"
                   >
                     <option value="active">🟢 Active</option>
                     <option value="warning">🟡 Warning / Low Bitrate</option>
@@ -413,13 +400,13 @@ export default function AdminCamerasPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold text-gray-300">Description</label>
+                  <label className="font-bold text-brand-navy">Description</label>
                   <input
                     type="text"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="e.g. Passenger concourse entry surveillance"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl px-3.5 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
@@ -444,17 +431,17 @@ export default function AdminCamerasPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-navy-700">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-brand-border">
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 bg-navy-700 hover:bg-navy-600 text-gray-300 rounded-xl font-semibold transition-colors"
+                  className="px-4 py-2 text-brand-muted hover:text-brand-navy rounded-xl font-bold transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-colors"
+                  className="px-6 py-2.5 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 transition-colors"
                 >
                   Save Camera Node
                 </button>
