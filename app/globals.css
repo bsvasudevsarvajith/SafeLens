@@ -64,3 +64,12 @@
 .animate-radar {
   animation: radar 2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
 }
+
+/* Mobile Safe-Area Utilities */
+.safe-area-bottom {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pb-safe {
+  padding-bottom: max(5rem, calc(4rem + env(safe-area-inset-bottom, 0px)));
+}

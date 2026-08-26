@@ -1,15 +1,29 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#6D35E8",
+};
+
 export const metadata: Metadata = {
-  title: "SafeLens AI — AI-Powered Location Safety Intelligence",
+  title: "SafeRoute Women — AI Urban Safety & Navigation Platform",
   description:
-    "See the Area. Understand the Risk. Choose Your Path. SafeLens AI analyzes crowd activity, location signals, and safety indicators to help you make informed travel decisions.",
+    "Travel safer. Stay connected. SafeRoute Women analyzes crowd activity, lighting corridors, and CCTV coverage to provide safety-aware navigation and emergency protection.",
   icons: {
     icon: "/favicon.ico",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "SafeRoute",
   },
 };
 
@@ -19,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} min-h-screen bg-brand-bg text-brand-navy antialiased`}>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} min-h-screen bg-brand-soft text-brand-navy antialiased flex flex-col`}>
         {children}
       </body>
     </html>

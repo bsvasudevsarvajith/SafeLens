@@ -247,7 +247,7 @@ function LocationAnalysisContent() {
 
 export default function LocationAnalysisPage() {
   return (
-    <div className="min-h-screen bg-brand-soft text-brand-navy flex">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex pb-20 md:pb-0">
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Header />

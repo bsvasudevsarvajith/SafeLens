@@ -1,0 +1,16 @@
+{
+  "name": "SafeRoute Women",
+  "short_name": "SafeRoute",
+  "description": "Travel safer. Stay connected. Real-time safety-aware navigation and emergency protection.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#FAF9FC",
+  "theme_color": "#6D35E8",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

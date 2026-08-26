@@ -173,7 +173,7 @@ export default function DashboardPage() {
   const strokeDashoffset = circumference - (analysisResult.safetyScore / 100) * circumference;
 
   return (
-    <div className="min-h-screen bg-brand-soft text-brand-navy flex">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex pb-20 md:pb-0">
       
       {/* 13. Sidebar */}
       <AppSidebar />

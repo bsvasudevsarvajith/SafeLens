@@ -356,7 +356,7 @@ export default function CrowdAIPage() {
   const currentCamera = cameras.find((c) => c.id === selectedCameraId) || cameras[0];
 
   return (
-    <div className="min-h-screen bg-brand-soft text-brand-navy flex">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex pb-20 md:pb-0">
       <AppSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">

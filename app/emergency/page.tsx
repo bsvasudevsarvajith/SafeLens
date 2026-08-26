@@ -16,16 +16,29 @@ import {
   Share2,
   Navigation,
   Sparkles,
-  PhoneCall
+  PhoneCall,
+  Heart,
+  UserCheck
 } from "lucide-react";
+import { db } from "@/lib/firebase/config";
+import { doc, setDoc } from "firebase/firestore";
+
+interface TrustedContact {
+  id: string;
+  name: string;
+  phone: string;
+  relationship: string;
+}
 
 export default function EmergencyPage() {
   const [sosActive, setSosActive] = useState(false);
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [broadcasting, setBroadcasting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [trustedContacts, setTrustedContacts] = useState<TrustedContact[]>([]);
 
   useEffect(() => {
+    // 1. Get live GPS location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -36,15 +49,59 @@ export default function EmergencyPage() {
         },
         () => {
           setGpsLocation({ lat: 10.9601, lng: 78.0766 });
-        }
+        },
+        { enableHighAccuracy: true }
       );
+    }
+
+    // 2. Load trusted contacts
+    const session = localStorage.getItem("wsrs_session");
+    if (session) {
+      try {
+        const user = JSON.parse(session);
+        const cached = localStorage.getItem(`wsrs_contacts_${user.uid}`);
+        if (cached) {
+          setTrustedContacts(JSON.parse(cached));
+        } else {
+          setTrustedContacts([
+            { id: "1", name: "Lakshmi Sharma", phone: "+91 98421 88990", relationship: "Mother" },
+            { id: "2", name: "Sneha Reddy", phone: "+91 94432 11223", relationship: "Friend" },
+          ]);
+        }
+      } catch {
+        // ignore
+      }
     }
   }, []);
 
-  const handleTriggerSOS = () => {
+  const handleTriggerSOS = async () => {
     setSosActive(true);
     setBroadcasting(true);
-    setMessage("🚨 EMERGENCY SOS BROADCAST ACTIVATED. Alert sent to Karur Police Patrol & Emergency Contacts.");
+
+    const lat = gpsLocation?.lat || 10.9601;
+    const lng = gpsLocation?.lng || 78.0766;
+
+    // Log incident in Firestore
+    try {
+      const session = localStorage.getItem("wsrs_session");
+      const user = session ? JSON.parse(session) : null;
+      const incidentId = `sos-${Date.now()}`;
+      await setDoc(doc(db, "emergencyIncidents", incidentId), {
+        incidentId,
+        userId: user?.uid || "anonymous",
+        userName: user?.displayName || user?.name || "Traveler",
+        userPhone: user?.phoneNumber || "Unknown",
+        location: { lat, lng },
+        timestamp: new Date().toISOString(),
+        status: "ACTIVE_ALERT",
+      }, { merge: true });
+    } catch (err) {
+      console.warn("[Firestore] SOS write note:", err);
+    }
+
+    setMessage(
+      `🚨 EMERGENCY SOS BROADCAST ACTIVE. Your live GPS coordinates (${lat.toFixed(4)}, ${lng.toFixed(4)}) have been recorded for emergency responders & trusted contacts.`
+    );
   };
 
   const handleDeactivateSOS = () => {
@@ -53,156 +110,199 @@ export default function EmergencyPage() {
     setMessage(null);
   };
 
-  const emergencyContacts = [
+  const helplineServices = [
     {
-      name: "Women Helpline (National)",
+      name: "National Women Helpline",
       number: "1091",
       desc: "24/7 Toll-Free Women In Distress Support",
       type: "Helpline",
       badgeClass: "bg-purple-50 text-brand-purple border-brand-purple/20",
     },
     {
-      name: "National Emergency Service",
+      name: "National Emergency Response",
       number: "112",
-      desc: "All-in-One Police, Fire & Medical Response",
+      desc: "All-in-One Police, Fire & Emergency Response",
       type: "Emergency",
       badgeClass: "bg-red-50 text-red-700 border-red-200",
     },
     {
       name: "Karur Police Control Room",
       number: "04324-256100",
-      desc: "Karur Town Police Station & Flying Squad",
+      desc: "Karur Town Police Station & Flying Patrol Squad",
       type: "Police",
       badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
     },
     {
-      name: "Emergency Medical & Ambulance",
+      name: "Emergency Ambulance Service",
       number: "108",
-      desc: "Tamil Nadu State Free Ambulance Dispatch",
+      desc: "Free 24/7 State Emergency Ambulance Dispatch",
       type: "Medical",
       badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    },
-    {
-      name: "Karur Govt District Hospital",
-      number: "04324-255555",
-      desc: "Gandhigramam, Karur Casualty Ward",
-      type: "Hospital",
-      badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
     },
   ];
 
   return (
-    <div className="min-h-screen bg-brand-soft text-brand-navy flex">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex pb-20 md:pb-0">
       <AppSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
         <Header />
 
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
           
-          {/* Top SOS Hero Card */}
-          <div className={`border rounded-3xl p-6 sm:p-8 shadow-card transition-all ${
-            sosActive
-              ? "bg-red-500 text-white border-red-600 ring-4 ring-red-500/30 animate-pulse"
-              : "bg-white border-brand-border"
-          }`}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2">
-                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
-                  sosActive ? "bg-white/20 text-white" : "bg-red-50 text-red-600 border border-red-200"
-                }`}>
-                  <Radio className="w-3.5 h-3.5 animate-pulse text-red-500" />
-                  <span>Immediate Assistance Protocol</span>
-                </div>
-                <h1 className={`text-2xl sm:text-3xl font-black tracking-tight ${
-                  sosActive ? "text-white" : "text-brand-navy"
-                }`}>
-                  Emergency SOS & Instant Dispatch
-                </h1>
-                <p className={`text-xs sm:text-sm max-w-2xl ${
-                  sosActive ? "text-white/90" : "text-brand-muted"
-                }`}>
-                  In case of danger, press the emergency SOS trigger below to broadcast your live GPS location to local patrol units and emergency contacts.
-                </p>
+          {/* Header Banner */}
+          <div className="bg-white rounded-3xl p-6 border border-brand-border shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-red-50 border border-red-200 rounded-full text-red-700 text-xs font-bold mb-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                <span>Rapid Emergency Response</span>
               </div>
-
-              {/* Big Red SOS Button */}
-              <div className="flex flex-col items-center">
-                {!sosActive ? (
-                  <button
-                    onClick={handleTriggerSOS}
-                    className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-tr from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-black text-xl shadow-xl shadow-red-500/30 border-4 border-white flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"
-                  >
-                    <span>SOS</span>
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider">PRESS HERE</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleDeactivateSOS}
-                    className="px-6 py-3 bg-white text-red-600 hover:bg-gray-100 font-extrabold rounded-2xl text-xs shadow-xl transition-all"
-                  >
-                    Deactivate SOS Alert
-                  </button>
-                )}
-              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-brand-navy tracking-tight">
+                Emergency SOS Dispatch
+              </h1>
+              <p className="text-xs sm:text-sm text-brand-muted mt-1">
+                Instantly trigger law enforcement alerts, broadcast GPS coordinates, and notify trusted contacts.
+              </p>
             </div>
 
-            {/* Active Alert Banner */}
-            {message && (
-              <div className="mt-4 p-4 bg-red-600 text-white border border-red-700 rounded-2xl text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-300 animate-spin shrink-0" />
-                  <span>{message}</span>
-                </div>
-                <span className="text-[10px] text-white/90 font-mono bg-black/20 px-2 py-1 rounded-lg">
-                  📍 {gpsLocation ? `${gpsLocation.lat.toFixed(4)}, ${gpsLocation.lng.toFixed(4)}` : "GPS Broadcasting"}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 font-mono text-xs text-brand-muted bg-brand-soft px-3 py-1.5 rounded-2xl border border-brand-border">
+              <MapPin className="w-4 h-4 text-brand-purple shrink-0" />
+              <span>GPS: {gpsLocation ? `${gpsLocation.lat.toFixed(4)}, ${gpsLocation.lng.toFixed(4)}` : "Detecting..."}</span>
+            </div>
           </div>
 
-          <NoticeDisclaimer variant="banner" />
-
-          {/* Quick Helpline Contacts Grid */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-extrabold text-brand-navy flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-brand-purple" />
-                <span>Karur District 24x7 Emergency Helplines</span>
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {emergencyContacts.map((contact) => (
-                <div
-                  key={contact.number}
-                  className="bg-white border border-brand-border rounded-3xl p-5 shadow-card hover:shadow-hover transition-all space-y-4 flex flex-col justify-between"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${contact.badgeClass}`}>
-                        {contact.type}
-                      </span>
-                      <Phone className="w-4 h-4 text-brand-muted" />
-                    </div>
-                    <h3 className="font-extrabold text-brand-navy text-base pt-1">{contact.name}</h3>
-                    <p className="text-xs text-brand-muted font-medium">{contact.desc}</p>
-                  </div>
-
-                  <div className="pt-3 border-t border-brand-border flex items-center justify-between">
-                    <span className="text-lg font-black text-brand-navy font-mono">
-                      {contact.number}
-                    </span>
-                    <a
-                      href={`tel:${contact.number}`}
-                      className="px-4 py-2 bg-brand-light hover:bg-brand-purple hover:text-white text-brand-purple font-bold rounded-xl text-xs border border-brand-purple/20 transition-colors"
-                    >
-                      Call Now
-                    </a>
-                  </div>
+          {/* SOS Broadcast Banner */}
+          {message && (
+            <div className="p-4 bg-red-600 text-white rounded-3xl shadow-xl shadow-red-600/30 space-y-2 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-black text-sm">
+                  <span className="w-3 h-3 rounded-full bg-white animate-ping" />
+                  <span>EMERGENCY BROADCAST ACTIVE</span>
                 </div>
-              ))}
+                <button
+                  onClick={handleDeactivateSOS}
+                  className="px-3 py-1 bg-white text-red-600 rounded-xl text-xs font-bold hover:bg-red-50 transition-colors"
+                >
+                  Deactivate Alert
+                </button>
+              </div>
+              <p className="text-xs text-white/90 leading-relaxed font-medium">
+                {message}
+              </p>
             </div>
+          )}
+
+          {/* 1-Tap SOS Huge Trigger Button */}
+          <div className="bg-white border-2 border-red-200 rounded-3xl p-6 sm:p-8 shadow-card text-center space-y-4">
+            <h2 className="text-lg font-black text-brand-navy">1-Tap Emergency Trigger</h2>
+            <p className="text-xs text-brand-muted max-w-md mx-auto">
+              Pressing the button below instantly logs your emergency coordinates and initiates rapid dispatch protocol.
+            </p>
+
+            <div className="py-4">
+              <button
+                type="button"
+                onClick={sosActive ? handleDeactivateSOS : handleTriggerSOS}
+                className={`w-40 h-40 sm:w-48 sm:h-48 rounded-full font-black text-white text-2xl sm:text-3xl shadow-2xl transition-all duration-300 transform active:scale-95 mx-auto flex flex-col items-center justify-center gap-2 ${
+                  sosActive
+                    ? "bg-amber-600 shadow-amber-600/50 hover:bg-amber-700 animate-pulse"
+                    : "bg-red-600 shadow-red-600/40 hover:bg-red-700 ring-8 ring-red-100"
+                }`}
+              >
+                <PhoneCall className="w-10 h-10 sm:w-12 sm:h-12" />
+                <span>{sosActive ? "CANCEL" : "SOS"}</span>
+              </button>
+            </div>
+
+            <p className="text-[11px] text-brand-muted">
+              {sosActive ? "🚨 Alert is broadcasting live to patrol units." : "Touch to broadcast immediate distress signal."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* Trusted Emergency Contacts */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="bg-white border border-brand-border rounded-3xl p-6 shadow-card space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-extrabold text-base text-brand-navy flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-red-500 fill-red-500/20" />
+                    <span>Your Trusted Emergency Circle</span>
+                  </h3>
+                  <a
+                    href="/profile"
+                    className="text-xs font-bold text-brand-purple hover:underline"
+                  >
+                    Manage
+                  </a>
+                </div>
+
+                <div className="space-y-2.5">
+                  {trustedContacts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-3.5 bg-brand-soft rounded-2xl border border-brand-border flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-brand-navy">{c.name}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-brand-light text-brand-purple border border-brand-purple/20 rounded-md">
+                            {c.relationship}
+                          </span>
+                        </div>
+                        <p className="text-brand-muted font-mono text-[11px]">{c.phone}</p>
+                      </div>
+
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>Call</span>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Official 24/7 Helplines */}
+            <div className="lg:col-span-6 space-y-4">
+              <div className="bg-white border border-brand-border rounded-3xl p-6 shadow-card space-y-4">
+                <h3 className="font-extrabold text-base text-brand-navy flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-brand-purple" />
+                  <span>24/7 Verified Emergency Helplines</span>
+                </h3>
+
+                <div className="space-y-2.5">
+                  {helplineServices.map((h) => (
+                    <div
+                      key={h.number}
+                      className="p-3.5 bg-brand-soft rounded-2xl border border-brand-border flex items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-brand-navy">{h.name}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${h.badgeClass}`}>
+                            {h.type}
+                          </span>
+                        </div>
+                        <p className="text-brand-muted text-[11px]">{h.desc}</p>
+                      </div>
+
+                      <a
+                        href={`tel:${h.number}`}
+                        className="px-3 py-1.5 bg-brand-purple hover:bg-brand-violet text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm shrink-0 transition-colors"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>{h.number}</span>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </main>

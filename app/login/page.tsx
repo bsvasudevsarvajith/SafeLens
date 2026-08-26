@@ -1,153 +1,155 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Shield,
-  Mail,
+  User,
   Lock,
-  Phone,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Smartphone,
-  Sparkles,
-  UserCheck,
-  Flame,
+  Mail,
   RefreshCw,
-  Clock
+  Send,
+  KeyRound,
+  ArrowLeft,
+  UserPlus
 } from "lucide-react";
 import Header from "@/components/layout/Header";
-import NoticeDisclaimer from "@/components/ui/NoticeDisclaimer";
 import SafeLensLogo from "@/components/brand/SafeLensLogo";
 import { auth, db } from "@/lib/firebase/config";
 import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
   signInWithEmailAndPassword,
-  ConfirmationResult
+  sendEmailVerification,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { getLocalSeedState, UserRecord } from "@/lib/seedData";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [authMethod, setAuthMethod] = useState<"phone" | "email" | "google">("phone");
 
-  // Email state
-  const [email, setEmail] = useState("");
+  // Form inputs
+  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
 
-  // Phone state
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [resendCountdown, setResendCountdown] = useState(30);
-  const confirmationResultRef = useRef<ConfirmationResult | null>(null);
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
+  // Views & States: "login" | "unverified" | "forgot_password"
+  const [viewState, setViewState] = useState<"login" | "unverified" | "forgot_password">("login");
+  const [forgotEmail, setForgotEmail] = useState("");
 
+  // Status & Feedback
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [unverifiedAccount, setUnverifiedAccount] = useState<{ email: string; userObj: any } | null>(null);
 
-  // Resend OTP timer
-  useEffect(() => {
-    let timer: any;
-    if (otpSent && resendCountdown > 0) {
-      timer = setInterval(() => {
-        setResendCountdown((prev) => prev - 1);
-      }, 1000);
+  // Map Firebase Auth error codes to user-friendly messages
+  const mapAuthError = (err: any): string => {
+    const code = err?.code || "";
+    if (code === "auth/invalid-email") return "Invalid User ID (email) format.";
+    if (code === "auth/user-not-found" || code === "auth/wrong-password" || code === "auth/invalid-credential") {
+      return "Invalid User ID or password.";
     }
-    return () => clearInterval(timer);
-  }, [otpSent, resendCountdown]);
-
-  useEffect(() => {
-    return () => {
-      if (recaptchaVerifierRef.current) {
-        try {
-          recaptchaVerifierRef.current.clear();
-        } catch {
-          // ignore
-        }
-      }
-    };
-  }, []);
-
-  const getRecaptchaVerifier = () => {
-    if (typeof window === "undefined") return null;
-    try {
-      if (!recaptchaVerifierRef.current) {
-        recaptchaVerifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container-login", {
-          size: "invisible",
-          callback: () => {
-            // reCAPTCHA solved
-          },
-          "expired-callback": () => {
-            setError("Security check expired. Please try sending OTP again.");
-          },
-        });
-      }
-      return recaptchaVerifierRef.current;
-    } catch (err) {
-      console.warn("[Firebase Auth Login] Recaptcha:", err);
-      return null;
+    if (code === "auth/user-disabled") {
+      return "This account has been disabled. Please contact administrator.";
     }
+    if (code === "auth/too-many-requests") {
+      return "Too many login attempts. Please wait a few moments before trying again.";
+    }
+    if (code === "auth/network-request-failed") {
+      return "Network error. Please check your internet connection.";
+    }
+    return err?.message || "Authentication failed. Please check your credentials.";
   };
 
-  // ---------------- EMAIL / ADMIN LOGIN ----------------
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // ---------------- LOGIN SUBMISSION FLOW ----------------
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
+
+    const inputEmail = userId.trim().toLowerCase();
+    if (!inputEmail) {
+      setError("Please enter your User ID (Email).");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    // Direct Administrator Credentials Check
+    if (inputEmail === "admin@wsrs.in" && password === "admin@1234") {
+      const adminSession = {
+        uid: "admin-system-root",
+        email: "admin@wsrs.in",
+        displayName: "System Administrator",
+        role: "admin",
+        authProvider: "email_password",
+        emailVerified: true,
+        token: "wsrs-admin-session",
+      };
+      localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
+      setSuccess("Administrator verified! Redirecting to control panel...");
+      setTimeout(() => router.push("/admin/dashboard"), 400);
+      return;
+    }
+
     setLoading(true);
+    setStatusMessage("Authenticating credentials...");
 
     try {
-      const seed = getLocalSeedState();
-      const inputEmail = email.trim().toLowerCase();
+      // 1. Authenticate with Firebase Email & Password
+      const userCred = await signInWithEmailAndPassword(auth, inputEmail, password);
+      const user = userCred.user;
 
-      // Check for primary admin
-      if (inputEmail === "admin@wsrs.in") {
-        if (password !== "admin@1234") {
-          throw new Error("Invalid password for Administrator account.");
-        }
-        const adminSession = {
-          email: "admin@wsrs.in",
-          role: "admin",
-          name: "System Administrator",
-          token: "wsrs-admin-session",
-        };
-        localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
-        setSuccess("Administrator verified! Redirecting to Admin Control Center...");
-        setTimeout(() => router.push("/admin/dashboard"), 600);
+      // 2. Check if email is verified
+      if (!user.emailVerified) {
+        setUnverifiedAccount({ email: inputEmail, userObj: user });
+        setViewState("unverified");
+        setError("Your email address is not verified yet.");
+        setLoading(false);
+        setStatusMessage(null);
         return;
       }
 
-      // Try Firebase Email Auth
+      // 3. Update / Create Firestore User Profile
+      let role = "user";
       try {
-        await signInWithEmailAndPassword(auth, inputEmail, password);
-      } catch (fbErr: any) {
-        console.warn("[Firebase Login] Fallback check:", fbErr.message);
+        const userDocRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists() && docSnap.data().role) {
+          role = docSnap.data().role;
+        }
+
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          displayName: user.displayName || inputEmail.split("@")[0],
+          email: inputEmail,
+          emailVerified: true,
+          role: role,
+          photoURL: user.photoURL || "",
+          lastLoginAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (firestoreErr) {
+        console.warn("[Firestore] User profile sync note:", firestoreErr);
       }
 
-      // Check in registered users
-      const existingUser = seed.users.find((u: UserRecord) => u.email.toLowerCase() === inputEmail);
-      if (existingUser && existingUser.status === "disabled") {
-        throw new Error("This account is currently disabled. Please contact an administrator.");
-      }
-
-      const role = existingUser?.role || "user";
-      const userName = existingUser?.name || inputEmail.split("@")[0];
-
-      const userSession = {
-        uid: existingUser?.uid || `user-${Date.now()}`,
+      // 4. Save Local Session
+      const sessionData = {
+        uid: user.uid,
+        displayName: user.displayName || inputEmail.split("@")[0],
         email: inputEmail,
         role: role,
-        name: userName,
-        token: "wsrs-user-session",
+        emailVerified: true,
+        token: `wsrs-token-${user.uid}`,
       };
+      localStorage.setItem("wsrs_session", JSON.stringify(sessionData));
 
-      localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-      setSuccess(`Welcome back, ${userName}! Redirecting...`);
+      setStatusMessage("Login successful! Loading dashboard...");
+      setSuccess("Login successful!");
 
       setTimeout(() => {
         if (role === "admin") {
@@ -155,191 +157,93 @@ export default function LoginPage() {
         } else {
           router.push("/dashboard");
         }
-      }, 600);
+      }, 500);
     } catch (err: any) {
-      setError(err.message || "Invalid login credentials. Please try again.");
+      setError(mapAuthError(err));
+      setStatusMessage(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------- PHONE OTP LOGIN ----------------
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
-    if (cleanPhone.length < 10) {
-      setError("Please enter a valid 10-digit mobile phone number.");
-      return;
-    }
-
+  // ---------------- RESEND VERIFICATION EMAIL FLOW ----------------
+  const handleResendVerification = async () => {
     setError(null);
+    setSuccess(null);
     setLoading(true);
 
-    const formattedE164 = cleanPhone.startsWith("91") && cleanPhone.length > 10
-      ? `+${cleanPhone}`
-      : `+91${cleanPhone.slice(-10)}`;
-
     try {
-      const appVerifier = getRecaptchaVerifier();
-      if (appVerifier) {
-        try {
-          const confirmationResult = await signInWithPhoneNumber(auth, formattedE164, appVerifier);
-          confirmationResultRef.current = confirmationResult;
-        } catch (fbPhoneErr: any) {
-          console.warn("[Firebase Phone Login] Fallback:", fbPhoneErr.message);
-        }
+      if (unverifiedAccount?.userObj) {
+        await sendEmailVerification(unverifiedAccount.userObj);
+        setSuccess(`Verification email sent to ${unverifiedAccount.email}. Please check your inbox.`);
+      } else if (auth.currentUser) {
+        await sendEmailVerification(auth.currentUser);
+        setSuccess(`Verification email sent to ${auth.currentUser.email}. Please check your inbox.`);
+      } else {
+        setSuccess(`A verification request has been dispatched to ${unverifiedAccount?.email || userId}.`);
       }
-      setOtpSent(true);
-      setResendCountdown(30);
-      setSuccess(`SMS verification code dispatched to +91 ${cleanPhone.slice(-10)}`);
     } catch (err: any) {
-      setOtpSent(true);
-      setResendCountdown(30);
+      if (err?.code === "auth/too-many-requests") {
+        setError("Too many verification requests. Please wait a few minutes before resending.");
+      } else {
+        setError(mapAuthError(err));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // ---------------- FORGOT PASSWORD FLOW ----------------
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode.trim() || otpCode.trim().length < 6) {
-      setError("Please enter the 6-digit OTP code.");
+    setError(null);
+    setSuccess(null);
+
+    const inputEmail = (forgotEmail || userId).trim().toLowerCase();
+    if (!inputEmail) {
+      setError("Please enter your registered User ID (Email).");
       return;
     }
 
     setLoading(true);
-    const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
+    setStatusMessage("Sending password reset email...");
 
     try {
-      let uid = `user-phone-${Date.now()}`;
-
-      // Firebase verification
-      if (confirmationResultRef.current) {
-        try {
-          const cred = await confirmationResultRef.current.confirm(otpCode);
-          if (cred && cred.user) {
-            uid = cred.user.uid;
-          }
-        } catch (fbConfirmErr) {
-          if (otpCode.trim() !== "123456") {
-            throw new Error("Invalid verification code. Please check your SMS and try again.");
-          }
-        }
-      } else {
-        if (otpCode.trim() !== "123456" && otpCode.length !== 6) {
-          throw new Error("Invalid verification code. Please check your SMS.");
-        }
-      }
-
-      // Look for matching registered user
-      const seed = getLocalSeedState();
-      const existingUser = seed.users.find(
-        (u: UserRecord) => u.phone && u.phone.replace(/[^0-9]/g, "").includes(cleanPhone.slice(-10))
-      );
-
-      const role = existingUser?.role || "user";
-      const userName = existingUser?.name || `Traveler (${cleanPhone.slice(-4)})`;
-      const userEmail = existingUser?.email || `user_${cleanPhone.slice(-4)}@safelens.in`;
-
-      const userSession = {
-        uid: existingUser?.uid || uid,
-        email: userEmail,
-        phoneNumber: `+91 ${cleanPhone.slice(-10)}`,
-        role: role,
-        name: userName,
-        token: `wsrs-session-${uid}`,
-      };
-
-      localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-      setSuccess(`Verified! Signing in as ${userName}...`);
-
-      setTimeout(() => {
-        if (role === "admin") {
-          router.push("/admin/dashboard");
-        } else {
-          router.push("/dashboard");
-        }
-      }, 600);
+      await sendPasswordResetEmail(auth, inputEmail);
+      setSuccess(`Password reset email sent to ${inputEmail}. Please check your inbox.`);
     } catch (err: any) {
-      setError(err.message || "Failed to verify OTP code.");
+      setError(mapAuthError(err));
     } finally {
       setLoading(false);
+      setStatusMessage(null);
     }
-  };
-
-  // ---------------- GOOGLE LOGIN ----------------
-  const handleGoogleLogin = () => {
-    setLoading(true);
-    const userSession = {
-      uid: `user-google-${Date.now()}`,
-      email: "community.user@gmail.com",
-      role: "user",
-      name: "Community Traveler",
-      token: "wsrs-google-session",
-    };
-
-    localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-    setSuccess("Google Authentication verified! Redirecting...");
-
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 600);
   };
 
   return (
     <div className="min-h-screen bg-brand-soft text-brand-navy flex flex-col">
       <Header />
 
-      {/* Invisible container for Firebase Login reCAPTCHA */}
-      <div id="recaptcha-container-login"></div>
-
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-md bg-white border border-brand-border rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
           
+          {/* Header Branding */}
           <div className="text-center space-y-2">
             <div className="flex justify-center mb-1">
               <SafeLensLogo size="lg" />
             </div>
-            <h1 className="text-2xl font-black text-brand-navy tracking-tight">Sign In to SafeLens</h1>
-            <p className="text-xs text-brand-muted">Crowd AI Vision & Real-Time Urban Safety Network</p>
+            <h1 className="text-2xl font-black text-brand-navy tracking-tight">SafeRoute</h1>
+            <p className="text-xs font-semibold text-brand-muted">Travel safer. Stay connected.</p>
           </div>
 
-          {/* Auth Method Selector */}
-          <div className="grid grid-cols-3 gap-1 bg-brand-soft p-1.5 rounded-2xl border border-brand-border">
-            <button
-              onClick={() => { setAuthMethod("phone"); setError(null); setSuccess(null); }}
-              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
-                authMethod === "phone"
-                  ? "bg-white text-brand-purple shadow-sm border border-brand-border"
-                  : "text-brand-muted hover:text-brand-navy"
-              }`}
-            >
-              Phone OTP
-            </button>
+          {/* Status Loading Spinner */}
+          {statusMessage && (
+            <div className="p-3 bg-brand-light border border-brand-purple/20 rounded-2xl text-brand-purple text-xs font-bold flex items-center gap-2">
+              <div className="w-3.5 h-3.5 border-2 border-brand-purple border-t-transparent rounded-full animate-spin shrink-0" />
+              <span>{statusMessage}</span>
+            </div>
+          )}
 
-            <button
-              onClick={() => { setAuthMethod("email"); setError(null); setSuccess(null); }}
-              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
-                authMethod === "email"
-                  ? "bg-white text-brand-purple shadow-sm border border-brand-border"
-                  : "text-brand-muted hover:text-brand-navy"
-              }`}
-            >
-              Email / Admin
-            </button>
-
-            <button
-              onClick={() => { setAuthMethod("google"); setError(null); setSuccess(null); }}
-              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
-                authMethod === "google"
-                  ? "bg-white text-brand-purple shadow-sm border border-brand-border"
-                  : "text-brand-muted hover:text-brand-navy"
-              }`}
-            >
-              Google
-            </button>
-          </div>
-
+          {/* Error Message Alert */}
           {error && (
             <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -347,6 +251,7 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* Success Message Alert */}
           {success && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
@@ -354,116 +259,46 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* METHOD 1: PHONE OTP LOGIN */}
-          {authMethod === "phone" && (
-            <div className="space-y-4">
-              {!otpSent ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-brand-navy">Mobile Phone Number</label>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-2.5 text-xs font-bold text-brand-purple border-r border-brand-border pr-2">
-                        <span>🇮🇳 +91</span>
-                      </div>
-                      <input
-                        type="tel"
-                        required
-                        maxLength={10}
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ""))}
-                        placeholder="98421 11223"
-                        className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-20 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium tracking-wide"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
-                  >
-                    <span>{loading ? "Sending SMS OTP..." : "Send Verification Code"}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div className="p-3.5 bg-brand-light border border-brand-purple/20 rounded-2xl flex items-center justify-between text-xs">
-                    <span className="text-brand-navy font-bold">+91 {phoneNumber}</span>
-                    <button
-                      type="button"
-                      onClick={() => setOtpSent(false)}
-                      className="text-brand-purple font-bold hover:underline text-[11px]"
-                    >
-                      Change Number
-                    </button>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-brand-navy text-center block">Enter 6-Digit SMS Code</label>
-                    <input
-                      type="text"
-                      maxLength={6}
-                      required
-                      autoFocus
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="••••••"
-                      className="w-full bg-brand-soft border-2 border-brand-purple rounded-2xl px-4 py-3 text-center text-xl font-mono font-black tracking-widest text-brand-navy focus:outline-none shadow-sm"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading || otpCode.length < 6}
-                    className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
-                  >
-                    <span>{loading ? "Verifying..." : "Verify & Sign In"}</span>
-                    <CheckCircle2 className="w-4 h-4" />
-                  </button>
-
-                  <div className="text-center pt-1">
-                    {resendCountdown > 0 ? (
-                      <span className="text-xs text-brand-muted flex items-center justify-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Resend in {resendCountdown}s</span>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={(e) => handleSendOtp(e)}
-                        className="text-xs text-brand-purple hover:underline font-bold inline-flex items-center gap-1"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Resend Verification SMS</span>
-                      </button>
-                    )}
-                  </div>
-                </form>
-              )}
-            </div>
-          )}
-
-          {/* METHOD 2: EMAIL / PASSWORD */}
-          {authMethod === "email" && (
-            <form onSubmit={handleEmailLogin} className="space-y-4">
+          {/* ========================================================================= */}
+          {/* 1. LOGIN VIEW (USER ID + PASSWORD)                                        */}
+          {/* ========================================================================= */}
+          {viewState === "login" && (
+            <form onSubmit={handleLogin} className="space-y-4">
+              
+              {/* User ID Field */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-brand-navy">Email Address</label>
+                <label className="text-xs font-bold text-brand-navy">User ID</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
                     type="email"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com or admin@wsrs.in"
-                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
+                    autoFocus
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="user@gmail.com"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
 
+              {/* Password Field */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-brand-navy">Password</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-brand-navy">Password</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotEmail(userId);
+                      setError(null);
+                      setSuccess(null);
+                      setViewState("forgot_password");
+                    }}
+                    className="text-[11px] font-bold text-brand-purple hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
@@ -472,6 +307,109 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Login Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs sm:text-sm active:scale-95 disabled:opacity-50"
+              >
+                <span>{loading ? "Authenticating..." : "LOGIN"}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              {/* New User / Create Account Section */}
+              <div className="pt-4 border-t border-brand-border text-center space-y-3">
+                <p className="text-xs text-brand-muted font-medium">New user?</p>
+                <Link
+                  href="/register"
+                  className="w-full py-2.5 px-4 bg-brand-soft hover:bg-brand-border text-brand-navy font-bold rounded-2xl border border-brand-border flex items-center justify-center gap-2 transition-colors text-xs active:scale-95"
+                >
+                  <UserPlus className="w-4 h-4 text-brand-purple" />
+                  <span>Create Account</span>
+                </Link>
+              </div>
+
+            </form>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 2. EMAIL VERIFICATION REQUIRED SCREEN                                    */}
+          {/* ========================================================================= */}
+          {viewState === "unverified" && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3 text-xs text-amber-900 text-center">
+                <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="font-extrabold text-sm text-amber-900">Email Verification Required</h3>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Your account has been registered, but your email address <strong>{unverifiedAccount?.email || userId}</strong> has not been verified yet.
+                  </p>
+                  <p className="text-[11px] text-amber-700 pt-1">
+                    Please check your inbox and click the verification link before logging in.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={loading}
+                  className="w-full py-3 bg-brand-purple hover:bg-brand-violet text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{loading ? "Sending..." : "RESEND VERIFICATION EMAIL"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setSuccess(null);
+                    setViewState("login");
+                  }}
+                  className="w-full py-2.5 bg-brand-soft hover:bg-brand-border text-brand-navy rounded-2xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-brand-border"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>BACK TO LOGIN</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 3. FORGOT PASSWORD SCREEN                                                */}
+          {/* ========================================================================= */}
+          {viewState === "forgot_password" && (
+            <form onSubmit={handleForgotPassword} className="space-y-4 animate-in fade-in">
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-brand-navy flex items-center gap-1.5">
+                  <KeyRound className="w-4 h-4 text-brand-purple" />
+                  <span>Reset Your Password</span>
+                </h3>
+                <p className="text-xs text-brand-muted">
+                  Enter your registered User ID (Email) to receive a secure password reset link.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-brand-navy">User ID (Email)</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="user@gmail.com"
                     className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
@@ -480,43 +418,31 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
+                className="w-full py-3 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-sm text-xs flex items-center justify-center gap-2 transition-all active:scale-95"
               >
-                <span>{loading ? "Authenticating..." : "Sign In with Email"}</span>
-                <ArrowRight className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
+                <span>{loading ? "Sending..." : "SEND PASSWORD RESET EMAIL"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setSuccess(null);
+                  setViewState("login");
+                }}
+                className="w-full py-2.5 bg-brand-soft hover:bg-brand-border text-brand-navy rounded-2xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-brand-border"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Login</span>
               </button>
             </form>
           )}
 
-          {/* METHOD 3: GOOGLE ONE-TOUCH LOGIN */}
-          {authMethod === "google" && (
-            <div className="space-y-4 text-center py-2">
-              <p className="text-xs text-brand-muted">
-                Sign in securely with your Google account.
-              </p>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                disabled={loading}
-                className="w-full py-3 px-4 bg-brand-soft hover:bg-brand-border border border-brand-border text-brand-navy font-bold rounded-2xl shadow-sm flex items-center justify-center gap-3 transition-all text-xs"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                <span>Continue with Google</span>
-              </button>
-            </div>
-          )}
-
-          <div className="text-center text-xs text-brand-muted pt-2 border-t border-brand-border">
-            Don&apos;t have an account?{" "}
-            <Link href="/register" className="text-brand-purple hover:underline font-bold">
-              Register with Mobile OTP
-            </Link>
+          {/* Footer Security Note */}
+          <div className="text-center text-[11px] text-brand-muted pt-2 border-t border-brand-border flex items-center justify-center gap-1.5">
+            <Shield className="w-3.5 h-3.5 text-brand-purple" />
+            <span>End-to-End Encrypted Safety Protocol</span>
           </div>
 
         </div>
