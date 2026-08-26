@@ -330,10 +330,9 @@ export default function AdminCamerasPage() {
                     className="w-full bg-brand-soft border border-brand-border rounded-2xl px-3.5 py-2.5 text-brand-navy font-bold focus:outline-none focus:border-brand-purple"
                   >
                     <option value="Fixed CCTV">Fixed CCTV</option>
-                    <option value="PTZ Camera">PTZ Camera</option>
-                    <option value="Dome CCTV">Dome CCTV</option>
-                    <option value="IP Camera">IP Camera</option>
-                    <option value="Demo Camera">Demo Camera</option>
+                    <option value="PTZ Camera">PTZ Camera (Pan-Tilt-Zoom)</option>
+                    <option value="Dome CCTV">Dome 360° CCTV</option>
+                    <option value="IP Camera">High-Definition IP Camera</option>
                   </select>
                 </div>
 
@@ -346,8 +345,7 @@ export default function AdminCamerasPage() {
                   >
                     <option value="RTSP">RTSP (Real-Time Streaming Protocol)</option>
                     <option value="HLS">HLS (HTTP Live Streaming)</option>
-                    <option value="WebRTC">WebRTC</option>
-                    <option value="Demo">Demo Sample Video</option>
+                    <option value="WebRTC">WebRTC (Ultra-Low Latency)</option>
                   </select>
                 </div>
 

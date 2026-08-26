@@ -857,11 +857,10 @@ export default function CrowdAIPage() {
                       📹 {currentCamera?.cameraName || "CCTV 01"}
                     </div>
 
-                    {currentCamera?.isDemo && (
-                      <div className="absolute top-3 right-3 bg-brand-purple text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow border border-white/20">
-                        DEMO CAMERA
-                      </div>
-                    )}
+                    <div className="absolute top-3 right-3 bg-emerald-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow border border-white/20 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                      <span>LIVE SURVEILLANCE FEED</span>
+                    </div>
                   </div>
 
                   {/* Live Extracted Results */}

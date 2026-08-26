@@ -114,11 +114,11 @@ export default function LandingPage() {
             <a href="#how-it-works" className="hover:text-brand-purple transition-colors">
               How It Works
             </a>
-            <a href="#demo-analysis" className="hover:text-brand-purple transition-colors">
-              Live Demo
+            <a href="#safety-analysis" className="hover:text-brand-purple transition-colors">
+              Safety Analysis
             </a>
             <a href="#safety-disclaimer" className="hover:text-brand-purple transition-colors">
-              Safety
+              Advisory
             </a>
           </nav>
 
@@ -168,11 +168,11 @@ export default function LandingPage() {
                 How It Works
               </a>
               <a
-                href="#demo-analysis"
+                href="#safety-analysis"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2 px-3 rounded-xl hover:bg-brand-soft"
               >
-                Live Demo
+                Safety Analysis
               </a>
               <a
                 href="#safety-disclaimer"

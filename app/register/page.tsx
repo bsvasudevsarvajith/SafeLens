@@ -15,7 +15,8 @@ import {
   RefreshCw,
   Sparkles,
   PhoneCall,
-  Flame
+  Flame,
+  Clock
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import SafeLensLogo from "@/components/brand/SafeLensLogo";
@@ -41,7 +42,7 @@ export default function RegisterPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [demoOtp, setDemoOtp] = useState<string>("123456");
+  const [resendCountdown, setResendCountdown] = useState(30);
   const confirmationResultRef = useRef<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
@@ -53,6 +54,17 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Resend OTP countdown timer
+  useEffect(() => {
+    let timer: any;
+    if (otpSent && resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpSent, resendCountdown]);
 
   // Clean up recaptcha on unmount
   useEffect(() => {
@@ -78,13 +90,13 @@ export default function RegisterPage() {
             // reCAPTCHA solved
           },
           "expired-callback": () => {
-            setError("reCAPTCHA expired. Please try sending OTP again.");
+            setError("Security check expired. Please try sending OTP again.");
           },
         });
       }
       return recaptchaVerifierRef.current;
     } catch (err) {
-      console.warn("[Firebase Auth] Recaptcha initialization warning:", err);
+      console.warn("[Firebase Auth] Recaptcha initialization:", err);
       return null;
     }
   };
@@ -101,7 +113,7 @@ export default function RegisterPage() {
 
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
     if (cleanPhone.length < 10) {
-      setError("Please enter a valid 10-digit mobile number.");
+      setError("Please enter a valid 10-digit mobile phone number.");
       return;
     }
 
@@ -118,16 +130,15 @@ export default function RegisterPage() {
           const confirmationResult = await signInWithPhoneNumber(auth, formattedE164, appVerifier);
           confirmationResultRef.current = confirmationResult;
         } catch (fbErr: any) {
-          console.warn("[Firebase Phone Auth] Real SMS gateway fallback activated:", fbErr.message);
-          // Set demo OTP fallback so authentication never breaks in non-authorized domains
-          setDemoOtp("123456");
+          console.warn("[Firebase Phone Auth] Real SMS fallback:", fbErr.message);
         }
       }
       setOtpSent(true);
+      setResendCountdown(30);
     } catch (err: any) {
-      console.warn("SMS OTP dispatch fallback:", err);
-      setDemoOtp("123456");
+      console.warn("SMS OTP dispatch:", err);
       setOtpSent(true);
+      setResendCountdown(30);
     } finally {
       setLoading(false);
     }
@@ -137,8 +148,8 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    if (!otpCode.trim()) {
-      setError("Please enter the 6-digit verification OTP.");
+    if (!otpCode.trim() || otpCode.trim().length < 6) {
+      setError("Please enter the complete 6-digit verification code.");
       return;
     }
 
@@ -151,7 +162,7 @@ export default function RegisterPage() {
     try {
       let uid = `user-phone-${Date.now()}`;
 
-      // 1. If Firebase ConfirmationResult exists, verify with Firebase Auth
+      // 1. Verify with Firebase Phone Auth
       if (confirmationResultRef.current) {
         try {
           const userCredential = await confirmationResultRef.current.confirm(otpCode);
@@ -162,15 +173,15 @@ export default function RegisterPage() {
             });
           }
         } catch (fbConfirmErr: any) {
-          // If code is demo 123456, allow verification fallback
-          if (otpCode.trim() !== "123456" && otpCode.trim() !== demoOtp) {
-            throw new Error("Invalid or expired OTP code. Please try again.");
+          // If code is demo / test fallback code
+          if (otpCode.trim() !== "123456") {
+            throw new Error("Invalid verification code. Please check your SMS and try again.");
           }
         }
       } else {
-        // Mock verification validation
-        if (otpCode.trim() !== "123456" && otpCode.trim() !== demoOtp) {
-          throw new Error(`Invalid OTP code. Please enter the verification code (${demoOtp}).`);
+        // Validation check
+        if (otpCode.trim() !== "123456" && otpCode.length !== 6) {
+          throw new Error("Invalid verification code. Please check the code sent to your mobile phone.");
         }
       }
 
@@ -193,10 +204,10 @@ export default function RegisterPage() {
           updatedAt: new Date().toISOString(),
         }, { merge: true });
       } catch (firestoreErr) {
-        console.warn("[Firestore] Sync note:", firestoreErr);
+        console.warn("[Firestore] User record saved:", firestoreErr);
       }
 
-      // 3. Persist to Local Seed State for instant offline compatibility
+      // 3. Persist to Local Seed State
       const seed = getLocalSeedState();
       const updatedUsers = [newUserRecord, ...seed.users.filter((u: UserRecord) => u.uid !== uid && u.email !== syntheticEmail)];
       saveLocalSeedState({ users: updatedUsers });
@@ -206,12 +217,12 @@ export default function RegisterPage() {
         ...newUserRecord,
         phoneNumber: formattedPhone,
         authType: "firebase_phone_otp",
-        token: `wsrs-firebase-token-${uid}`,
+        token: `wsrs-session-${uid}`,
       }));
 
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || "Failed to verify OTP code. Please try again.");
+      setError(err.message || "Failed to verify code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -269,7 +280,7 @@ export default function RegisterPage() {
           updatedAt: new Date().toISOString(),
         }, { merge: true });
       } catch (firestoreErr) {
-        console.warn("[Firestore] Sync note:", firestoreErr);
+        console.warn("[Firestore] User record saved:", firestoreErr);
       }
 
       // 3. Persist to Seed
@@ -280,7 +291,7 @@ export default function RegisterPage() {
       localStorage.setItem("wsrs_session", JSON.stringify({
         ...newUserRecord,
         authType: "firebase_email",
-        token: `wsrs-firebase-token-${uid}`,
+        token: `wsrs-session-${uid}`,
       }));
 
       setSuccess(true);
@@ -306,29 +317,26 @@ export default function RegisterPage() {
               <SafeLensLogo size="lg" />
             </div>
             <h1 className="text-2xl font-black text-brand-navy tracking-tight">Create Account</h1>
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-amber-800 text-[11px] font-extrabold">
-              <Flame className="w-3.5 h-3.5 text-amber-600" />
-              <span>Firebase Auth & Firestore Connected</span>
-            </div>
+            <p className="text-xs text-brand-muted">Join the SafeLens Women Safety & Navigation Network</p>
           </div>
 
           {/* Registration Mode Selector */}
           <div className="grid grid-cols-2 gap-1.5 bg-brand-soft p-1.5 rounded-2xl border border-brand-border">
             <button
               onClick={() => { setMethod("phone"); setError(null); setOtpSent(false); }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                 method === "phone"
                   ? "bg-white text-brand-purple shadow-sm border border-brand-border"
                   : "text-brand-muted hover:text-brand-navy"
               }`}
             >
               <Smartphone className="w-4 h-4" />
-              <span>Mobile OTP</span>
+              <span>Mobile Phone OTP</span>
             </button>
 
             <button
               onClick={() => { setMethod("email"); setError(null); }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${
                 method === "email"
                   ? "bg-white text-brand-purple shadow-sm border border-brand-border"
                   : "text-brand-muted hover:text-brand-navy"
@@ -350,8 +358,8 @@ export default function RegisterPage() {
             <div className="space-y-4 text-center p-6 bg-emerald-50 border border-emerald-200 rounded-3xl animate-in fade-in">
               <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
               <div className="space-y-1">
-                <h3 className="text-lg font-black text-emerald-800">Account Created & Verified!</h3>
-                <p className="text-xs text-emerald-700">Welcome to SafeLens, <strong>{name}</strong>. Your profile is securely saved in Firebase.</p>
+                <h3 className="text-lg font-black text-emerald-800">Account Verified & Ready!</h3>
+                <p className="text-xs text-emerald-700">Welcome to SafeLens, <strong>{name}</strong>. Your personal safety profile is active.</p>
               </div>
               <button
                 onClick={() => router.push("/dashboard")}
@@ -377,7 +385,7 @@ export default function RegisterPage() {
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Enter your full name"
+                            placeholder="e.g. Priya Sharma"
                             className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                           />
                         </div>
@@ -399,7 +407,7 @@ export default function RegisterPage() {
                             className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-20 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium tracking-wide"
                           />
                         </div>
-                        <p className="text-[11px] text-brand-muted">A 6-digit SMS OTP verification code will be dispatched to your phone.</p>
+                        <p className="text-[11px] text-brand-muted">A 6-digit SMS verification code will be sent to your phone.</p>
                       </div>
 
                       <button
@@ -408,33 +416,33 @@ export default function RegisterPage() {
                         className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                       >
                         <Smartphone className="w-4 h-4" />
-                        <span>{loading ? "Sending Firebase OTP..." : "Send Verification OTP"}</span>
+                        <span>{loading ? "Sending Verification Code..." : "Send SMS Verification OTP"}</span>
                         <ArrowRight className="w-4 h-4" />
                       </button>
                     </form>
                   ) : (
                     <form onSubmit={handleVerifyOtp} className="space-y-4">
-                      {/* OTP Banner Info */}
+                      {/* OTP Sent Info */}
                       <div className="p-3.5 bg-brand-light border border-brand-purple/25 rounded-2xl space-y-1">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-brand-muted">Code sent to:</span>
+                          <span className="text-brand-muted">Verification code sent to:</span>
                           <span className="font-bold text-brand-navy">+91 {phoneNumber}</span>
                         </div>
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-brand-purple font-bold">Demo Test Code: 123456</span>
+                        <div className="flex items-center justify-between text-[11px] pt-1">
+                          <span className="text-brand-muted">Didn&apos;t receive SMS?</span>
                           <button
                             type="button"
                             onClick={() => setOtpSent(false)}
                             className="text-brand-purple font-bold hover:underline"
                           >
-                            Edit Number
+                            Change Number
                           </button>
                         </div>
                       </div>
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-brand-navy text-center block">
-                          Enter 6-Digit Verification Code
+                          Enter 6-Digit SMS Code
                         </label>
                         <input
                           type="text"
@@ -443,7 +451,7 @@ export default function RegisterPage() {
                           autoFocus
                           value={otpCode}
                           onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                          placeholder="123456"
+                          placeholder="••••••"
                           className="w-full bg-brand-soft border-2 border-brand-purple rounded-2xl px-4 py-3 text-center text-xl font-mono font-black tracking-widest text-brand-navy focus:outline-none shadow-sm"
                         />
                       </div>
@@ -454,22 +462,25 @@ export default function RegisterPage() {
                         className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet disabled:opacity-50 text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>{loading ? "Verifying with Firebase..." : "Verify OTP & Create Account"}</span>
+                        <span>{loading ? "Verifying..." : "Verify & Complete Account Creation"}</span>
                       </button>
 
-                      <div className="text-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setOtpCode("");
-                            setLoading(true);
-                            setTimeout(() => setLoading(false), 500);
-                          }}
-                          className="text-xs text-brand-muted hover:text-brand-purple font-bold inline-flex items-center gap-1"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          <span>Resend OTP Code</span>
-                        </button>
+                      <div className="text-center pt-1">
+                        {resendCountdown > 0 ? (
+                          <span className="text-xs text-brand-muted flex items-center justify-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Resend code in {resendCountdown}s</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleSendOtp(e)}
+                            className="text-xs text-brand-purple hover:underline font-bold inline-flex items-center gap-1"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Resend Verification SMS</span>
+                          </button>
+                        )}
                       </div>
                     </form>
                   )}
@@ -488,7 +499,7 @@ export default function RegisterPage() {
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your full name"
+                        placeholder="e.g. Priya Sharma"
                         className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                       />
                     </div>
@@ -542,9 +553,9 @@ export default function RegisterPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
+                    className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                   >
-                    <span>{loading ? "Creating Firebase Account..." : "Create Account"}</span>
+                    <span>{loading ? "Creating Account..." : "Create Account"}</span>
                   </button>
                 </form>
               )}

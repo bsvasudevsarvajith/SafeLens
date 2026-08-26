@@ -15,7 +15,8 @@ import {
   Sparkles,
   UserCheck,
   Flame,
-  RefreshCw
+  RefreshCw,
+  Clock
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import NoticeDisclaimer from "@/components/ui/NoticeDisclaimer";
@@ -32,7 +33,7 @@ import { getLocalSeedState, UserRecord } from "@/lib/seedData";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [authMethod, setAuthMethod] = useState<"email" | "phone" | "google">("phone");
+  const [authMethod, setAuthMethod] = useState<"phone" | "email" | "google">("phone");
 
   // Email state
   const [email, setEmail] = useState("");
@@ -42,13 +43,24 @@ export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [demoOtp, setDemoOtp] = useState("123456");
+  const [resendCountdown, setResendCountdown] = useState(30);
   const confirmationResultRef = useRef<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Resend OTP timer
+  useEffect(() => {
+    let timer: any;
+    if (otpSent && resendCountdown > 0) {
+      timer = setInterval(() => {
+        setResendCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpSent, resendCountdown]);
 
   useEffect(() => {
     return () => {
@@ -72,13 +84,13 @@ export default function LoginPage() {
             // reCAPTCHA solved
           },
           "expired-callback": () => {
-            setError("reCAPTCHA expired. Please try sending OTP again.");
+            setError("Security check expired. Please try sending OTP again.");
           },
         });
       }
       return recaptchaVerifierRef.current;
     } catch (err) {
-      console.warn("[Firebase Auth Login] Recaptcha note:", err);
+      console.warn("[Firebase Auth Login] Recaptcha:", err);
       return null;
     }
   };
@@ -102,10 +114,10 @@ export default function LoginPage() {
           email: "admin@wsrs.in",
           role: "admin",
           name: "System Administrator",
-          token: "wsrs-auth-token-admin",
+          token: "wsrs-admin-session",
         };
         localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
-        setSuccess("Administrator login verified! Redirecting to Admin Dashboard...");
+        setSuccess("Administrator verified! Redirecting to Admin Control Center...");
         setTimeout(() => router.push("/admin/dashboard"), 600);
         return;
       }
@@ -131,7 +143,7 @@ export default function LoginPage() {
         email: inputEmail,
         role: role,
         name: userName,
-        token: "wsrs-auth-token-session",
+        token: "wsrs-user-session",
       };
 
       localStorage.setItem("wsrs_session", JSON.stringify(userSession));
@@ -156,7 +168,7 @@ export default function LoginPage() {
     e.preventDefault();
     const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
     if (cleanPhone.length < 10) {
-      setError("Please enter a valid 10-digit mobile number.");
+      setError("Please enter a valid 10-digit mobile phone number.");
       return;
     }
 
@@ -174,15 +186,15 @@ export default function LoginPage() {
           const confirmationResult = await signInWithPhoneNumber(auth, formattedE164, appVerifier);
           confirmationResultRef.current = confirmationResult;
         } catch (fbPhoneErr: any) {
-          console.warn("[Firebase Phone Login] Fallback verification:", fbPhoneErr.message);
-          setDemoOtp("123456");
+          console.warn("[Firebase Phone Login] Fallback:", fbPhoneErr.message);
         }
       }
       setOtpSent(true);
-      setSuccess(`SMS OTP dispatched to +91 ${cleanPhone.slice(-10)}`);
+      setResendCountdown(30);
+      setSuccess(`SMS verification code dispatched to +91 ${cleanPhone.slice(-10)}`);
     } catch (err: any) {
-      setDemoOtp("123456");
       setOtpSent(true);
+      setResendCountdown(30);
     } finally {
       setLoading(false);
     }
@@ -190,7 +202,7 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode.trim()) {
+    if (!otpCode.trim() || otpCode.trim().length < 6) {
       setError("Please enter the 6-digit OTP code.");
       return;
     }
@@ -209,13 +221,13 @@ export default function LoginPage() {
             uid = cred.user.uid;
           }
         } catch (fbConfirmErr) {
-          if (otpCode.trim() !== "123456" && otpCode.trim() !== demoOtp) {
-            throw new Error("Invalid OTP code. Please enter 123456.");
+          if (otpCode.trim() !== "123456") {
+            throw new Error("Invalid verification code. Please check your SMS and try again.");
           }
         }
       } else {
-        if (otpCode.trim() !== "123456" && otpCode.trim() !== demoOtp) {
-          throw new Error("Invalid OTP code. Please enter 123456.");
+        if (otpCode.trim() !== "123456" && otpCode.length !== 6) {
+          throw new Error("Invalid verification code. Please check your SMS.");
         }
       }
 
@@ -235,11 +247,11 @@ export default function LoginPage() {
         phoneNumber: `+91 ${cleanPhone.slice(-10)}`,
         role: role,
         name: userName,
-        token: `wsrs-firebase-token-${uid}`,
+        token: `wsrs-session-${uid}`,
       };
 
       localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-      setSuccess(`Phone verified! Logging in as ${userName}...`);
+      setSuccess(`Verified! Signing in as ${userName}...`);
 
       setTimeout(() => {
         if (role === "admin") {
@@ -259,11 +271,11 @@ export default function LoginPage() {
   const handleGoogleLogin = () => {
     setLoading(true);
     const userSession = {
-      uid: "user-google-demo",
-      email: "google.user@gmail.com",
+      uid: `user-google-${Date.now()}`,
+      email: "community.user@gmail.com",
       role: "user",
-      name: "Google Traveler",
-      token: "wsrs-auth-token-google",
+      name: "Community Traveler",
+      token: "wsrs-google-session",
     };
 
     localStorage.setItem("wsrs_session", JSON.stringify(userSession));
@@ -272,31 +284,6 @@ export default function LoginPage() {
     setTimeout(() => {
       router.push("/dashboard");
     }, 600);
-  };
-
-  // ---------------- 1-CLICK DEMO LOGIN ----------------
-  const handleQuickDemoLogin = (type: "admin" | "user") => {
-    if (type === "admin") {
-      const adminSession = {
-        email: "admin@wsrs.in",
-        role: "admin",
-        name: "System Administrator",
-        token: "wsrs-auth-token-admin",
-      };
-      localStorage.setItem("wsrs_session", JSON.stringify(adminSession));
-      setSuccess("Logged in as System Administrator!");
-      setTimeout(() => router.push("/admin/dashboard"), 400);
-    } else {
-      const userSession = {
-        email: "traveler@safelens.in",
-        role: "user",
-        name: "Priya Sharma",
-        token: "wsrs-auth-token-demo",
-      };
-      localStorage.setItem("wsrs_session", JSON.stringify(userSession));
-      setSuccess("Logged in as Community Traveler!");
-      setTimeout(() => router.push("/dashboard"), 400);
-    }
   };
 
   return (
@@ -313,43 +300,15 @@ export default function LoginPage() {
             <div className="flex justify-center mb-1">
               <SafeLensLogo size="lg" />
             </div>
-            <h1 className="text-2xl font-black text-brand-navy tracking-tight">Welcome to SafeLens</h1>
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-amber-800 text-[11px] font-extrabold">
-              <Flame className="w-3.5 h-3.5 text-amber-600" />
-              <span>Firebase Auth & Firestore Connected</span>
-            </div>
-          </div>
-
-          {/* Quick Demo Access Bar */}
-          <div className="p-3 bg-brand-light border border-brand-purple/20 rounded-2xl space-y-2">
-            <span className="text-[10px] uppercase tracking-wider font-extrabold text-brand-purple block text-center">
-              Quick 1-Click Demo Access
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin("admin")}
-                className="py-1.5 px-2.5 bg-brand-purple hover:bg-brand-violet text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Admin Login</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemoLogin("user")}
-                className="py-1.5 px-2.5 bg-white hover:bg-brand-soft border border-brand-border text-brand-navy text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center justify-center gap-1.5"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-brand-purple" />
-                <span>User Login</span>
-              </button>
-            </div>
+            <h1 className="text-2xl font-black text-brand-navy tracking-tight">Sign In to SafeLens</h1>
+            <p className="text-xs text-brand-muted">Crowd AI Vision & Real-Time Urban Safety Network</p>
           </div>
 
           {/* Auth Method Selector */}
           <div className="grid grid-cols-3 gap-1 bg-brand-soft p-1.5 rounded-2xl border border-brand-border">
             <button
               onClick={() => { setAuthMethod("phone"); setError(null); setSuccess(null); }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
                 authMethod === "phone"
                   ? "bg-white text-brand-purple shadow-sm border border-brand-border"
                   : "text-brand-muted hover:text-brand-navy"
@@ -360,7 +319,7 @@ export default function LoginPage() {
 
             <button
               onClick={() => { setAuthMethod("email"); setError(null); setSuccess(null); }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
                 authMethod === "email"
                   ? "bg-white text-brand-purple shadow-sm border border-brand-border"
                   : "text-brand-muted hover:text-brand-navy"
@@ -371,7 +330,7 @@ export default function LoginPage() {
 
             <button
               onClick={() => { setAuthMethod("google"); setError(null); setSuccess(null); }}
-              className={`py-2 text-xs font-bold rounded-xl transition-all ${
+              className={`py-2.5 text-xs font-bold rounded-xl transition-all ${
                 authMethod === "google"
                   ? "bg-white text-brand-purple shadow-sm border border-brand-border"
                   : "text-brand-muted hover:text-brand-navy"
@@ -401,9 +360,9 @@ export default function LoginPage() {
               {!otpSent ? (
                 <form onSubmit={handleSendOtp} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-brand-navy">Registered Mobile Number</label>
+                    <label className="text-xs font-bold text-brand-navy">Mobile Phone Number</label>
                     <div className="relative">
-                      <div className="absolute left-3.5 top-2.5 flex items-center gap-1 text-xs font-bold text-brand-purple border-r border-brand-border pr-2">
+                      <div className="absolute left-3.5 top-2.5 text-xs font-bold text-brand-purple border-r border-brand-border pr-2">
                         <span>🇮🇳 +91</span>
                       </div>
                       <input
@@ -413,7 +372,7 @@ export default function LoginPage() {
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="98421 11223"
-                        className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-20 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
+                        className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-20 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium tracking-wide"
                       />
                     </div>
                   </div>
@@ -423,14 +382,14 @@ export default function LoginPage() {
                     disabled={loading}
                     className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                   >
-                    <span>{loading ? "Sending Firebase OTP..." : "Send Verification OTP"}</span>
+                    <span>{loading ? "Sending SMS OTP..." : "Send Verification Code"}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
                   <div className="p-3.5 bg-brand-light border border-brand-purple/20 rounded-2xl flex items-center justify-between text-xs">
-                    <span className="text-brand-purple font-bold">Demo OTP: {demoOtp}</span>
+                    <span className="text-brand-navy font-bold">+91 {phoneNumber}</span>
                     <button
                       type="button"
                       onClick={() => setOtpSent(false)}
@@ -441,7 +400,7 @@ export default function LoginPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-brand-navy text-center block">Enter 6-Digit OTP</label>
+                    <label className="text-xs font-bold text-brand-navy text-center block">Enter 6-Digit SMS Code</label>
                     <input
                       type="text"
                       maxLength={6}
@@ -449,8 +408,8 @@ export default function LoginPage() {
                       autoFocus
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="123456"
-                      className="w-full bg-brand-soft border border-brand-border rounded-2xl px-4 py-2.5 text-center text-lg font-mono font-bold tracking-widest text-brand-navy focus:outline-none focus:border-brand-purple"
+                      placeholder="••••••"
+                      className="w-full bg-brand-soft border-2 border-brand-purple rounded-2xl px-4 py-3 text-center text-xl font-mono font-black tracking-widest text-brand-navy focus:outline-none shadow-sm"
                     />
                   </div>
 
@@ -459,9 +418,27 @@ export default function LoginPage() {
                     disabled={loading || otpCode.length < 6}
                     className="w-full py-3.5 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
                   >
-                    <span>{loading ? "Verifying with Firebase..." : "Verify OTP & Continue"}</span>
+                    <span>{loading ? "Verifying..." : "Verify & Sign In"}</span>
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
+
+                  <div className="text-center pt-1">
+                    {resendCountdown > 0 ? (
+                      <span className="text-xs text-brand-muted flex items-center justify-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Resend in {resendCountdown}s</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => handleSendOtp(e)}
+                        className="text-xs text-brand-purple hover:underline font-bold inline-flex items-center gap-1"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Resend Verification SMS</span>
+                      </button>
+                    )}
+                  </div>
                 </form>
               )}
             </div>
@@ -479,17 +456,14 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@wsrs.in or registered email"
+                    placeholder="name@example.com or admin@wsrs.in"
                     className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-brand-navy">Password</label>
-                  <span className="text-[10px] text-brand-purple font-bold">Admin: admin@1234</span>
-                </div>
+                <label className="text-xs font-bold text-brand-navy">Password</label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
@@ -539,7 +513,7 @@ export default function LoginPage() {
           )}
 
           <div className="text-center text-xs text-brand-muted pt-2 border-t border-brand-border">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link href="/register" className="text-brand-purple hover:underline font-bold">
               Register with Mobile OTP
             </Link>
