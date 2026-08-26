@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
+import AppSidebar from "@/components/layout/AppSidebar";
 import RouteMap from "@/components/map/RouteMap";
 import NoticeDisclaimer from "@/components/ui/NoticeDisclaimer";
 import { RouteOption } from "@/lib/geo/routingService";
@@ -247,16 +248,18 @@ function RouteAnalysisContent() {
 
 export default function RouteAnalysisPage() {
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
-      <Header />
-      <Suspense fallback={
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }>
-        <RouteAnalysisContent />
-      </Suspense>
+    <div className="min-h-screen bg-navy-900 text-white flex">
+      <AppSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <Header />
+        <Suspense fallback={
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }>
+          <RouteAnalysisContent />
+        </Suspense>
+      </div>
     </div>
   );
 }
-

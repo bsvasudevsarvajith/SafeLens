@@ -27,16 +27,47 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Locations (Karur New Bus Stand, etc)
-    match /locations/{locationId} {
+    // Cameras (Authorized CCTV management)
+    // Non-admin users can read camera locations & status, but sensitive fields like streamUrl/credentials are withheld server-side
+    match /cameras/{cameraId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Areas
-    match /areas/{areaId} {
+    // Regions (Karur, Kulithalai, etc)
+    match /regions/{regionId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Time-series crowd measurements
+    match /crowdMeasurements/{measurementId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Crowd AI Analyses (Video & Image records)
+    match /crowdAnalyses/{analysisId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // Safety Reports
+    match /safetyReports/{reportId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // Saved Locations
+    match /savedLocations/{savedId} {
+      allow read, write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Trips
+    match /trips/{tripId} {
+      allow read, write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
     // Videos metadata
@@ -45,27 +76,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Video AI Analysis results
+    // Legacy video_analysis and routes
     match /video_analysis/{analysisId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Routes
     match /routes/{routeId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Safety Scores
     match /safety_scores/{scoreId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    // System Settings
-    match /system_settings/{settingId} {
-      allow read: if isAuthenticated();
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

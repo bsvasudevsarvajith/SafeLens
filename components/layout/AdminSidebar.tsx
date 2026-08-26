@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Users,
   Video,
+  Camera,
   Cpu,
   MapPin,
   Settings,
@@ -26,9 +27,14 @@ export default function AdminSidebar() {
       icon: LayoutDashboard,
     },
     {
-      name: "Users",
-      href: "/admin/users",
-      icon: Users,
+      name: "Camera Management",
+      href: "/admin/cameras",
+      icon: Camera,
+    },
+    {
+      name: "AI Monitoring",
+      href: "/admin/analysis",
+      icon: Cpu,
     },
     {
       name: "Video Management",
@@ -36,9 +42,9 @@ export default function AdminSidebar() {
       icon: Video,
     },
     {
-      name: "AI Analysis",
-      href: "/admin/analysis",
-      icon: Cpu,
+      name: "Users",
+      href: "/admin/users",
+      icon: Users,
     },
     {
       name: "Location Management",
@@ -66,7 +72,7 @@ export default function AdminSidebar() {
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-white text-sm">WSRS Admin</h3>
+            <h3 className="font-bold text-white text-sm">SafeRoute Admin</h3>
             <p className="text-[11px] text-emerald-400 font-medium">System Administrator</p>
           </div>
         </div>
@@ -81,9 +87,9 @@ export default function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 isActive
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-md shadow-blue-500/5 font-semibold"
+                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-md font-bold"
                   : "text-gray-400 hover:text-white hover:bg-navy-800/60"
               }`}
             >

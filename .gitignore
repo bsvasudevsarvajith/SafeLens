@@ -37,8 +37,20 @@ ai-service/venv/
 ai-service/.env
 *.mp4
 
+# Python cache & compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# YOLO / AI model weights (large binaries)
+*.pt
+*.weights
+*.onnx
+
 # OS / IDE
 .DS_Store
 *.pem
 .idea/
 .vscode/
+

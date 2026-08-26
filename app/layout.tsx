@@ -5,9 +5,12 @@ import { Inter } from "next/font/google";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Women Safety Route System (WSRS) - Karur District",
+  title: "SafeLens AI — AI-Powered Location Safety Intelligence",
   description:
-    "AI-driven Women Safety Route System prototype for Karur District, Tamil Nadu, analyzing human activity and person density for safer destination routing.",
+    "See the Area. Understand the Risk. Choose Your Path. SafeLens AI analyzes crowd activity, location signals, and safety indicators to help you make informed travel decisions.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -16,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.className} min-h-screen bg-navy-900 text-white antialiased`}>
+    <html lang="en">
+      <body className={`${inter.className} min-h-screen bg-brand-bg text-brand-navy antialiased`}>
         {children}
       </body>
     </html>
