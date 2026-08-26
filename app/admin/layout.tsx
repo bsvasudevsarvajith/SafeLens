@@ -31,31 +31,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (authorized === null) {
     return (
-      <div className="min-h-screen bg-navy-900 flex items-center justify-center text-white">
-        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-brand-soft flex items-center justify-center text-brand-navy">
+        <div className="w-8 h-8 border-3 border-brand-purple border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   if (authorized === false) {
     return (
-      <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+      <div className="min-h-screen bg-brand-soft text-brand-navy flex flex-col">
         <Header />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full bg-navy-800 border border-red-500/40 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
-            <div className="w-12 h-12 bg-red-500/20 border border-red-500/40 rounded-2xl flex items-center justify-center text-red-400 mx-auto">
+          <div className="max-w-md w-full bg-white border border-brand-border rounded-3xl p-8 text-center space-y-4 shadow-card">
+            <div className="w-12 h-12 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center text-red-600 mx-auto">
               <Lock className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-bold text-white">Administrator Access Required</h2>
-            <p className="text-xs text-gray-300">
-              Only authorized administrator accounts can access the WSRS Admin Dashboard.
+            <h2 className="text-xl font-black text-brand-navy">Administrator Access Required</h2>
+            <p className="text-xs text-brand-muted">
+              Only authorized administrator accounts can access the SafeLens Admin Dashboard.
             </p>
-            <div className="p-3 bg-navy-900 rounded-xl text-xs text-emerald-400 font-mono">
+            <div className="p-3 bg-brand-soft border border-brand-border rounded-xl text-xs text-brand-purple font-mono font-bold">
               Initial Admin Email: admin@wsrs.in
             </div>
             <button
               onClick={() => router.push("/login")}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-xs transition-colors"
+              className="w-full py-3 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl text-xs transition-colors shadow-md shadow-brand-purple/20"
             >
               Login as Administrator
             </button>
@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex flex-col">
       <Header />
       <div className="flex-1 flex">
         <AdminSidebar />

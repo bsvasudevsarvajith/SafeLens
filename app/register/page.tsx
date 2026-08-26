@@ -3,9 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield, User, Mail, Lock, CheckCircle, AlertCircle, ArrowRight } from "lucide-react";
+import { Shield, User, Mail, Lock, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import Header from "@/components/layout/Header";
-
+import SafeLensLogo from "@/components/brand/SafeLensLogo";
 import { getLocalSeedState, saveLocalSeedState, UserRecord } from "@/lib/seedData";
 
 export default function RegisterPage() {
@@ -64,100 +64,100 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex flex-col">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex flex-col">
       <Header />
 
       <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div className="w-full max-w-md bg-navy-800 border border-navy-700 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <div className="w-full max-w-md bg-white border border-brand-border rounded-3xl p-6 sm:p-8 shadow-card space-y-6">
           
           <div className="text-center space-y-2">
-            <div className="inline-flex p-3 bg-gradient-to-tr from-blue-600/20 to-emerald-500/20 border border-blue-500/30 rounded-2xl text-emerald-400 mb-2">
-              <Shield className="w-8 h-8" />
+            <div className="flex justify-center mb-1">
+              <SafeLensLogo size="lg" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-wide">Women Safety Route System</h1>
-            <p className="text-xs text-gray-400">Create Account • Karur District</p>
+            <h1 className="text-2xl font-black text-brand-navy tracking-tight">Create Account</h1>
+            <p className="text-xs text-brand-muted">Join the SafeLens Urban Intelligence Network</p>
           </div>
 
           {error && (
-            <div className="p-3.5 bg-red-950/50 border border-red-500/40 rounded-xl text-red-300 text-xs flex items-center gap-2.5">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-xs font-semibold flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
 
           {success ? (
-            <div className="space-y-4 text-center p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl">
-              <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
+            <div className="space-y-4 text-center p-6 bg-emerald-50 border border-emerald-200 rounded-3xl">
+              <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-emerald-300">Account Created Successfully!</h3>
-                <p className="text-xs text-gray-300">Welcome to Women Safety Route System, {name}.</p>
+                <h3 className="text-lg font-black text-emerald-800">Account Created Successfully!</h3>
+                <p className="text-xs text-emerald-700">Welcome to SafeLens, {name}.</p>
               </div>
               <button
                 onClick={() => router.push("/dashboard")}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
+                className="w-full py-3 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-purple/20 transition-all"
               >
-                <span>Continue to Map</span>
+                <span>Continue to Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Full Name</label>
+                <label className="text-xs font-bold text-brand-navy">Full Name</label>
                 <div className="relative">
-                  <User className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <User className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="Enter your full name"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Email Address</label>
+                <label className="text-xs font-bold text-brand-navy">Email Address</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <Mail className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Password</label>
+                <label className="text-xs font-bold text-brand-navy">Password</label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <Lock className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
                     type="password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-300">Confirm Password</label>
+                <label className="text-xs font-bold text-brand-navy">Confirm Password</label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3.5" />
+                  <Lock className="w-4 h-4 text-brand-muted absolute left-3.5 top-3.5" />
                   <input
                     type="password"
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-navy-900 border border-navy-600 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full bg-brand-soft border border-brand-border rounded-2xl pl-10 pr-4 py-2.5 text-xs text-brand-navy placeholder-brand-muted focus:outline-none focus:border-brand-purple font-medium"
                   />
                 </div>
               </div>
@@ -165,14 +165,14 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all"
+                className="w-full py-3 px-4 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl shadow-md shadow-brand-purple/20 flex items-center justify-center gap-2 transition-all text-xs"
               >
                 <span>{loading ? "Creating Account..." : "Create Account"}</span>
               </button>
 
-              <div className="text-center text-xs text-gray-400 pt-2">
+              <div className="text-center text-xs text-brand-muted pt-2 border-t border-brand-border">
                 Already have an account?{" "}
-                <Link href="/login" className="text-blue-400 hover:underline font-semibold">
+                <Link href="/login" className="text-brand-purple hover:underline font-bold">
                   Login
                 </Link>
               </div>

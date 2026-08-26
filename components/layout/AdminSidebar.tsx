@@ -64,16 +64,16 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className="w-64 bg-navy-900 border-r border-navy-700 flex flex-col min-h-[calc(100vh-4rem)]">
+    <aside className="w-64 bg-white border-r border-brand-border flex flex-col min-h-[calc(100vh-4rem)] z-10 flex-shrink-0">
       {/* Admin Title Banner */}
-      <div className="p-4 border-b border-navy-700/60 bg-navy-800/40">
+      <div className="p-4 border-b border-brand-border bg-brand-soft">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-emerald-400">
+          <div className="p-2 bg-brand-light border border-brand-purple/20 rounded-xl text-brand-purple">
             <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-bold text-white text-sm">SafeRoute Admin</h3>
-            <p className="text-[11px] text-emerald-400 font-medium">System Administrator</p>
+            <h3 className="font-extrabold text-brand-navy text-sm">SafeLens Admin</h3>
+            <p className="text-[11px] text-brand-purple font-bold">System Administrator</p>
           </div>
         </div>
       </div>
@@ -87,13 +87,13 @@ export default function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+              className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
                 isActive
-                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-md font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-navy-800/60"
+                  ? "bg-brand-light text-brand-purple border border-brand-purple/25 shadow-sm"
+                  : "text-brand-muted hover:text-brand-navy hover:bg-brand-soft"
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? "text-blue-400" : "text-gray-400"}`} />
+              <Icon className={`w-4 h-4 ${isActive ? "text-brand-purple" : "text-brand-muted"}`} />
               <span>{item.name}</span>
             </Link>
           );
@@ -101,18 +101,18 @@ export default function AdminSidebar() {
       </nav>
 
       {/* Footer Controls */}
-      <div className="p-3 border-t border-navy-700 space-y-1">
+      <div className="p-3 border-t border-brand-border space-y-1">
         <Link
           href="/dashboard"
-          className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-400 hover:text-white hover:bg-navy-800 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-brand-muted hover:text-brand-navy hover:bg-brand-soft rounded-xl transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 text-gray-400" />
+          <ArrowLeft className="w-4 h-4 text-brand-muted" />
           <span>Return to User App</span>
         </Link>
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-950/40 rounded-lg transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors"
         >
           <LogOut className="w-4 h-4" />
           <span>Admin Logout</span>

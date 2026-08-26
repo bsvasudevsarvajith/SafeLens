@@ -21,7 +21,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
-  Info
+  Navigation
 } from "lucide-react";
 
 function LocationAnalysisContent() {
@@ -90,25 +90,26 @@ function LocationAnalysisContent() {
   return (
     <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       
-      {/* Header */}
-      <div className="bg-gradient-to-r from-navy-800 via-navy-700 to-navy-800 border border-navy-700 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Banner */}
+      <div className="bg-white border border-brand-border rounded-3xl p-6 sm:p-8 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 text-xs font-semibold mb-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-0.5 bg-brand-light border border-brand-purple/20 rounded-full text-brand-purple text-xs font-bold mb-2">
             <Sparkles className="w-3.5 h-3.5" />
             <span>AI Multi-Factor Risk Assessment</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-            📍 Location Safety & Crowd Analysis
+          <h1 className="text-2xl sm:text-3xl font-black text-brand-navy tracking-tight">
+            Location Safety & Crowd Analysis
           </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-brand-muted mt-1">
             Real-time algorithmic safety evaluation integrating CCTV camera feeds, public density, and corridor connectivity.
           </p>
         </div>
 
         <button
-          onClick={() => router.push(`/route?startLat=${selectedLoc.lat}&startLng=${selectedLoc.lng}&name=${encodeURIComponent(selectedLoc.name)}`)}
-          className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all"
+          onClick={() => router.push(`/safe-route?startLat=${selectedLoc.lat}&startLng=${selectedLoc.lng}&name=${encodeURIComponent(selectedLoc.name)}`)}
+          className="px-5 py-3 bg-brand-purple hover:bg-brand-violet text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md shadow-brand-purple/20 transition-all self-start md:self-auto"
         >
+          <Navigation className="w-4 h-4" />
           <span>Find Safest Route From Here</span>
           <ArrowRight className="w-4 h-4" />
         </button>
@@ -128,76 +129,82 @@ function LocationAnalysisContent() {
 
           {/* Detailed Factor Breakdown Card */}
           {assessment && (
-            <div className="bg-navy-800 border border-navy-700 rounded-3xl p-6 shadow-xl space-y-4">
+            <div className="bg-white border border-brand-border rounded-3xl p-6 shadow-card space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Multi-Factor Assessment</span>
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border uppercase ${assessment.statusBadge.includes("🟢") ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"}`}>
-                  {assessment.statusBadge}
+                <span className="text-xs font-extrabold text-brand-muted uppercase tracking-wider">Multi-Factor Assessment</span>
+                <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
+                  assessment.statusBadge.includes("Favorable") || assessment.overallScore >= 75
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200" 
+                    : "bg-amber-50 text-amber-700 border-amber-200"
+                }`}>
+                  {assessment.statusBadge.replace(/^[🟢🟡🔴]\s*/, "")}
                 </span>
               </div>
 
               {/* Overall Score Banner */}
-              <div className="p-4 bg-navy-900 rounded-2xl border border-navy-700 flex items-center justify-between">
+              <div className="p-4 bg-brand-soft rounded-2xl border border-brand-border flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] text-gray-400 uppercase font-semibold">Safety Score</span>
-                  <div className="text-3xl font-extrabold text-white mt-0.5">
-                    {assessment.overallScore}<span className="text-sm text-gray-400">/100</span>
+                  <span className="text-[10px] text-brand-muted uppercase font-bold">Safety Score</span>
+                  <div className="text-3xl font-black text-brand-navy mt-0.5">
+                    {assessment.overallScore}<span className="text-sm text-brand-muted font-bold">/100</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-gray-400 uppercase font-semibold">Risk Level</span>
-                  <div className={`text-base font-bold mt-0.5 ${assessment.riskLevel === "LOW" ? "text-emerald-400" : "text-amber-400"}`}>
+                  <span className="text-[10px] text-brand-muted uppercase font-bold">Risk Level</span>
+                  <div className={`text-base font-extrabold mt-0.5 ${
+                    assessment.riskLevel === "LOW" ? "text-emerald-700" : "text-amber-700"
+                  }`}>
                     {assessment.riskLevel}
                   </div>
                 </div>
               </div>
 
               {/* 5 Input Factors */}
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between items-center py-1.5 border-b border-navy-700/60">
-                  <span className="text-gray-300 font-semibold flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-brand-border/60">
+                  <span className="text-brand-navy font-semibold flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-emerald-600" />
                     Crowd Activity ({assessment.activityLevel})
                   </span>
-                  <span className="font-bold text-white">{assessment.crowdActivityScore}/100</span>
+                  <span className="font-extrabold text-brand-navy">{assessment.crowdActivityScore}/100</span>
                 </div>
 
-                <div className="flex justify-between items-center py-1.5 border-b border-navy-700/60">
-                  <span className="text-gray-300 font-semibold flex items-center gap-1.5">
-                    <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+                <div className="flex justify-between items-center py-1.5 border-b border-brand-border/60">
+                  <span className="text-brand-navy font-semibold flex items-center gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 text-brand-purple" />
                     Public Place Density
                   </span>
-                  <span className="font-bold text-white">{assessment.publicPlaceDensityScore}/100</span>
+                  <span className="font-extrabold text-brand-navy">{assessment.publicPlaceDensityScore}/100</span>
                 </div>
 
-                <div className="flex justify-between items-center py-1.5 border-b border-navy-700/60">
-                  <span className="text-gray-300 font-semibold flex items-center gap-1.5">
-                    <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="flex justify-between items-center py-1.5 border-b border-brand-border/60">
+                  <span className="text-brand-navy font-semibold flex items-center gap-2">
+                    <Activity className="w-3.5 h-3.5 text-indigo-600" />
                     Road Connectivity & Lighting
                   </span>
-                  <span className="font-bold text-white">{assessment.roadConnectivityScore}/100</span>
+                  <span className="font-extrabold text-brand-navy">{assessment.roadConnectivityScore}/100</span>
                 </div>
 
-                <div className="flex justify-between items-center py-1.5 border-b border-navy-700/60">
-                  <span className="text-gray-300 font-semibold flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <div className="flex justify-between items-center py-1.5 border-b border-brand-border/60">
+                  <span className="text-brand-navy font-semibold flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
                     Time of Day Factor
                   </span>
-                  <span className="font-bold text-white">{assessment.timeFactorScore}/100</span>
+                  <span className="font-extrabold text-brand-navy">{assessment.timeFactorScore}/100</span>
                 </div>
 
                 <div className="flex justify-between items-center py-1.5">
-                  <span className="text-gray-300 font-semibold flex items-center gap-1.5">
-                    <Video className="w-3.5 h-3.5 text-teal-400" />
+                  <span className="text-brand-navy font-semibold flex items-center gap-2">
+                    <Video className="w-3.5 h-3.5 text-teal-600" />
                     Surveillance Camera Presence
                   </span>
-                  <span className="font-bold text-white">{assessment.cameraActivityScore}/100</span>
+                  <span className="font-extrabold text-brand-navy">{assessment.cameraActivityScore}/100</span>
                 </div>
               </div>
 
               {/* Recommendation Note */}
-              <div className="p-3.5 bg-blue-950/30 border border-blue-500/30 rounded-2xl text-xs text-blue-200/90 leading-relaxed">
-                <strong>Recommendation:</strong> {assessment.recommendation}
+              <div className="p-4 bg-brand-light border border-brand-purple/20 rounded-2xl text-xs text-brand-navy leading-relaxed font-medium">
+                <strong className="text-brand-purple">Recommendation:</strong> {assessment.recommendation}
               </div>
             </div>
           )}
@@ -205,12 +212,12 @@ function LocationAnalysisContent() {
 
         {/* Right Column: Location Map & Nearby CCTV View */}
         <div className="lg:col-span-7 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-200 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-400" />
-              <span>Surveillance Grid for {selectedLoc.name}</span>
+          <div className="flex items-center justify-between bg-white p-3.5 rounded-2xl border border-brand-border shadow-subtle">
+            <h2 className="text-xs font-bold text-brand-navy flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-brand-purple" />
+              <span>Surveillance Grid for <strong>{selectedLoc.name}</strong></span>
             </h2>
-            <span className="text-xs text-emerald-400 font-semibold">
+            <span className="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
               ~{assessment?.estimatedPeople || 26} people estimated
             </span>
           </div>
@@ -240,13 +247,13 @@ function LocationAnalysisContent() {
 
 export default function LocationAnalysisPage() {
   return (
-    <div className="min-h-screen bg-navy-900 text-white flex">
+    <div className="min-h-screen bg-brand-soft text-brand-navy flex">
       <AppSidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Header />
         <Suspense fallback={
           <div className="flex-1 flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-3 border-brand-purple border-t-transparent rounded-full animate-spin"></div>
           </div>
         }>
           <LocationAnalysisContent />
