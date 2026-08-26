@@ -204,15 +204,15 @@ export default function CCTVMap({
         <div className="font-bold text-white text-[11px] mb-1">CCTV Monitoring Legend</div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-emerald-500 border border-white"></span>
-          <span>🟢 Active Surveillance ({cameras.filter((c) => c.status === "active").length})</span>
+          <span>Active Surveillance ({cameras.filter((c) => c.status === "active").length})</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-amber-500 border border-white"></span>
-          <span>🟡 Warning / Low Frame ({cameras.filter((c) => c.status === "warning").length})</span>
+          <span>Warning / Low Frame ({cameras.filter((c) => c.status === "warning").length})</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-red-500 border border-white"></span>
-          <span>🔴 Offline ({cameras.filter((c) => c.status === "offline").length})</span>
+          <span>Offline ({cameras.filter((c) => c.status === "offline").length})</span>
         </div>
       </div>
     </div>

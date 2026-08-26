@@ -165,15 +165,15 @@ export default function HeroMapPreview() {
             <span className="text-[9px] font-bold text-brand-muted uppercase block">Map Legend</span>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>🟢 High Activity</span>
+              <span>High Activity</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>🟡 Moderate</span>
+              <span>Moderate</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-500" />
-              <span>🔴 Caution</span>
+              <span>Caution</span>
             </div>
           </div>
 

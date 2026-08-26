@@ -136,15 +136,15 @@ export default function SafeLensMap({
         <span className="text-[10px] font-bold text-brand-muted uppercase block">AI Activity Assessment</span>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-          <span className="font-semibold">🟢 Favorable</span>
+          <span className="font-semibold">Favorable</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          <span className="font-semibold">🟡 Moderate</span>
+          <span className="font-semibold">Moderate</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          <span className="font-semibold">🔴 Requires Caution</span>
+          <span className="font-semibold">Requires Caution</span>
         </div>
       </div>
 
