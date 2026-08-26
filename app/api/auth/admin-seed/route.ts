@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { INITIAL_ADMIN_USER } from "@/lib/seedData";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     return NextResponse.json({

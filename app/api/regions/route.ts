@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { INITIAL_REGIONS, INITIAL_CAMERAS } from "@/lib/seedData";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     return NextResponse.json({
